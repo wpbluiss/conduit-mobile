@@ -1,0 +1,43 @@
+export const Colors = {
+  bgVoid: '#030712',
+  bgPrimary: '#0a0f1e',
+  bgCard: '#111827',
+  bgElevated: '#1a2235',
+  bgInput: '#0f172a',
+  electric: '#0EA5E9',
+  electricGlow: '#38BDF8',
+  electricMuted: 'rgba(14, 165, 233, 0.15)',
+  electricBorder: 'rgba(14, 165, 233, 0.12)',
+  cyan: '#06B6D4',
+  cyanGlow: 'rgba(6, 182, 212, 0.2)',
+  success: '#10B981',
+  successGlow: 'rgba(16, 185, 129, 0.15)',
+  warning: '#F59E0B',
+  warningGlow: 'rgba(245, 158, 11, 0.15)',
+  danger: '#EF4444',
+  dangerGlow: 'rgba(239, 68, 68, 0.15)',
+  textPrimary: '#F8FAFC',
+  textSecondary: '#94A3B8',
+  textMuted: '#475569',
+  textDisabled: '#334155',
+  border: 'rgba(148, 163, 184, 0.08)',
+  borderLight: 'rgba(148, 163, 184, 0.15)',
+  borderElectric: 'rgba(14, 165, 233, 0.25)',
+  gradientElectric: ['#0EA5E9', '#06B6D4'] as const,
+  gradientElectricDiag: ['#0EA5E9', '#3B82F6'] as const,
+  gradientDark: ['#0a0f1e', '#030712'] as const,
+  shadowElectric: 'rgba(14, 165, 233, 0.25)',
+  shadowDark: 'rgba(0, 0, 0, 0.5)',
+  overlay: 'rgba(3, 7, 18, 0.7)',
+} as const;
+
+export const StatusColors = {
+  new: Colors.electric,
+  contacted: Colors.warning,
+  booked: Colors.success,
+  lost: Colors.danger,
+  active: Colors.success,
+  inactive: Colors.textMuted,
+} as const;
+
+export type StatusType = keyof typeof StatusColors;
