@@ -19,7 +19,7 @@ export function Input({ label, error, icon, rightIcon, onRightIconPress, style, 
       {label && <Text style={st.label}>{label}</Text>}
       <Animated.View style={[st.container, cs]}>
         {icon && <View style={st.iconL}>{icon}</View>}
-        <TextInput {...props} style={[st.input, icon && { paddingLeft: 0 }, style]} placeholderTextColor={Colors.textMuted} onFocus={focus} onBlur={blur} selectionColor={Colors.electric} />
+        <TextInput {...props} style={[st.input, icon ? { paddingLeft: 0 } : undefined, style]} placeholderTextColor={Colors.textMuted} onFocus={focus} onBlur={blur} selectionColor={Colors.electric} />
         {rightIcon && <Pressable onPress={onRightIconPress} style={st.iconR}>{rightIcon}</Pressable>}
       </Animated.View>
       {error && <Text style={st.error}>{error}</Text>}
