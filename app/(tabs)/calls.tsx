@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable, TextInput } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +44,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 export default function CallsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { leads, isRefreshing, fetchLeads, refresh } = useLeadsStore();
   const [search, setSearch] = useState('');
@@ -149,7 +151,7 @@ export default function CallsScreen() {
           </View>
         ) : (
           filtered.map((lead) => (
-            <View key={lead.id} style={st.leadCard}>
+            <Pressable key={lead.id} onPress={() => router.push(`/lead/${lead.id}`)} style={st.leadCard}>
               <View style={st.leadRow}>
                 <LinearGradient
                   colors={Colors.gradientElectric}
@@ -171,7 +173,7 @@ export default function CallsScreen() {
                   </View>
                 </View>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
         <View style={{ height: 100 }} />

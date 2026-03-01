@@ -129,7 +129,7 @@ export default function DashboardScreen() {
 
       {/* Lead Cards */}
       {recentLeads.map((lead) => (
-        <View key={lead.id} style={st.leadCard}>
+        <Pressable key={lead.id} onPress={() => router.push(`/lead/${lead.id}`)} style={st.leadCard}>
           <View style={st.leadRow}>
             <LinearGradient colors={Colors.gradientElectric} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.leadAvatar}>
               <Text style={st.leadAvatarText}>{lead.caller_name.charAt(0)}</Text>
@@ -146,7 +146,7 @@ export default function DashboardScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </Pressable>
       ))}
 
       <View style={{ height: 100 }} />
