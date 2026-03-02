@@ -66,7 +66,7 @@ export default function LoginScreen() {
 
         <Animated.View entering={FadeInUp.delay(500).springify().damping(18)} style={st.bottom}>
           <View style={st.divider}><View style={st.divLine} /><Text style={st.divTxt}>or</Text><View style={st.divLine} /></View>
-          <Button title="Start Free Trial" onPress={() => {}} variant="secondary" fullWidth size="lg" />
+          <Button title="Start Free Trial" onPress={() => router.push('/(auth)/signup')} variant="secondary" fullWidth size="lg" />
           <Text style={st.trialNote}>14 days free · No commitment · Cancel anytime</Text>
         </Animated.View>
       </View>
