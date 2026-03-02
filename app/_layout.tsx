@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, StatusBar } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 import { Colors } from '../constants/colors';
 
@@ -12,32 +13,58 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
 
+  const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null);
+
   const onboardingComplete = user?.user_metadata?.onboarding_complete === true;
 
-  useEffect(() => { initialize(); }, []);
-  useEffect(() => { if (!isLoading) SplashScreen.hideAsync(); }, [isLoading]);
   useEffect(() => {
-    if (isLoading) return;
+    initialize();
+    AsyncStorage.getItem('has_seen_welcome').then((val) => {
+      setHasSeenWelcome(val === 'true');
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && hasSeenWelcome !== null) SplashScreen.hideAsync();
+  }, [isLoading, hasSeenWelcome]);
+
+  useEffect(() => {
+    if (isLoading || hasSeenWelcome === null) return;
+
     const inAuth = segments[0] === '(auth)';
+    const inWelcome = segments[1] === 'welcome';
     const inOnboarding = segments[1] === 'onboarding';
-    console.log('[Auth Redirect] isAuthenticated:', isAuthenticated, 'inAuth:', inAuth, 'onboardingComplete:', onboardingComplete, 'segments:', segments);
+
+    console.log('[Router] isAuthenticated:', isAuthenticated, 'hasSeenWelcome:', hasSeenWelcome, 'onboardingComplete:', onboardingComplete, 'segments:', segments);
+
     try {
-      if (!isAuthenticated && !inAuth) {
-        console.log('[Auth Redirect] Navigating to login');
+      // First-time user: show welcome walkthrough
+      if (!isAuthenticated && !hasSeenWelcome && !inWelcome) {
+        console.log('[Router] Navigating to welcome');
+        router.replace('/(auth)/welcome');
+      }
+      // Returning unauthenticated user: show login (but not if on welcome, signup, etc.)
+      else if (!isAuthenticated && hasSeenWelcome && !inAuth) {
+        console.log('[Router] Navigating to login');
         router.replace('/(auth)/login');
-      } else if (isAuthenticated && !onboardingComplete && !inOnboarding) {
-        console.log('[Auth Redirect] Navigating to onboarding');
+      }
+      // Authenticated but onboarding incomplete
+      else if (isAuthenticated && !onboardingComplete && !inOnboarding) {
+        console.log('[Router] Navigating to onboarding');
         router.replace('/(auth)/onboarding');
-      } else if (isAuthenticated && onboardingComplete && inAuth) {
-        console.log('[Auth Redirect] Navigating to tabs');
+      }
+      // Authenticated, onboarding done, still in auth group
+      else if (isAuthenticated && onboardingComplete && inAuth) {
+        console.log('[Router] Navigating to tabs');
         router.replace('/(tabs)');
       }
     } catch (e) {
-      console.error('[Auth Redirect] Navigation error:', e);
+      console.error('[Router] Navigation error:', e);
     }
-  }, [isAuthenticated, isLoading, segments, onboardingComplete]);
+  }, [isAuthenticated, isLoading, segments, onboardingComplete, hasSeenWelcome]);
 
-  if (isLoading) return null;
+  if (isLoading || hasSeenWelcome === null) return null;
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bgVoid }}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.bgVoid} />
