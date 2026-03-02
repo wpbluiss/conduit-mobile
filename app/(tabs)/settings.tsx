@@ -58,16 +58,15 @@ function Row({
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { signOut, user } = useAuthStore();
-  const { agentStatus } = useLeadsStore();
+  const { agentStatus, toggleAgent } = useLeadsStore();
 
   const meta = user?.user_metadata;
   const ownerName = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || '';
   const email = user?.email || '';
   const businessName = meta?.business_name || '';
-  const greetingMessage = meta?.greeting_message || 'Hi, thanks for calling! How can I help you today?';
+  const greetingMessage = meta?.greeting_message || meta?.agent_greeting || 'Hi, thanks for calling! How can I help you today?';
 
   const agentActive = agentStatus?.is_active ?? true;
-  const [agentToggle, setAgentToggle] = useState(agentActive);
   const [pushEnabled, setPushEnabled] = useState(true);
 
   const handleAgentToggle = (val: boolean) => {
@@ -77,11 +76,11 @@ export default function SettingsScreen() {
         'Your agent will stop answering calls. Missed calls won\'t be captured.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Pause Agent', style: 'destructive', onPress: () => setAgentToggle(false) },
+          { text: 'Pause Agent', style: 'destructive', onPress: () => toggleAgent() },
         ]
       );
     } else {
-      setAgentToggle(true);
+      toggleAgent();
     }
   };
 
@@ -113,11 +112,11 @@ export default function SettingsScreen() {
       <View style={st.card}>
         <Row
           icon="flash-outline"
-          iconColor={agentToggle ? Colors.success : Colors.textMuted}
+          iconColor={agentActive ? Colors.success : Colors.textMuted}
           label="Agent Active"
           rightElement={
             <Switch
-              value={agentToggle}
+              value={agentActive}
               onValueChange={handleAgentToggle}
               trackColor={{ false: Colors.bgElevated, true: Colors.success }}
               thumbColor="#fff"

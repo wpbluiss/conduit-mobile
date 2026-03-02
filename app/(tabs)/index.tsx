@@ -25,14 +25,6 @@ function getTimeAgo(d: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-const MOCK_LEADS = [
-  { id: '1', caller_name: 'Maria Gonzalez', caller_phone: '(561) 555-0134', summary: 'Needs haircut, Saturday 2pm', status: 'new' as const, created_at: new Date(Date.now() - 2 * 60000).toISOString() },
-  { id: '2', caller_name: 'James Wilson', caller_phone: '(561) 555-0891', summary: 'Beard trim, this week', status: 'new' as const, created_at: new Date(Date.now() - 18 * 60000).toISOString() },
-  { id: '3', caller_name: 'Sofia Reyes', caller_phone: '(561) 555-0567', summary: 'Color appointment inquiry', status: 'contacted' as const, created_at: new Date(Date.now() - 60 * 60000).toISOString() },
-  { id: '4', caller_name: 'David Park', caller_phone: '(561) 555-0223', summary: 'Wants balayage consultation', status: 'booked' as const, created_at: new Date(Date.now() - 3 * 3600000).toISOString() },
-  { id: '5', caller_name: 'Aisha Thompson', caller_phone: '(561) 555-0789', summary: 'Reschedule Tuesday appointment', status: 'contacted' as const, created_at: new Date(Date.now() - 5 * 3600000).toISOString() },
-];
-
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -50,8 +42,8 @@ export default function DashboardScreen() {
 
   const onRefresh = useCallback(async () => { await refresh(); }, []);
 
-  const stats = dashboardStats || { leads_today: 12, revenue_saved: 4200, capture_rate: 89 };
-  const recentLeads = leads.length > 0 ? leads.slice(0, 5) : MOCK_LEADS;
+  const stats = dashboardStats || { leads_today: 0, revenue_saved: 0, capture_rate: 0 };
+  const recentLeads = leads.slice(0, 5);
   const meta = user?.user_metadata;
   const name = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || 'Luis';
   const biz = meta?.business_name || '';

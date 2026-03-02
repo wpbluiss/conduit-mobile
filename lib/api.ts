@@ -26,12 +26,28 @@ class ApiClient {
     return response.json();
   }
 
-  async getLeads(filters?: { period?: string }) { return this.request<Lead[]>('/api/v1/leads', { params: filters as any }); }
-  async getLead(id: string) { return this.request<LeadDetail>(`/api/v1/leads/${id}`); }
-  async updateLeadStatus(id: string, status: string) { return this.request(`/api/v1/leads/${id}/status`, { method: 'PATCH', body: { status } }); }
-  async getDashboardStats() { return this.request<DashboardStats>('/api/v1/analytics'); }
-  async getAgentStatus() { return this.request<AgentStatus>('/api/v1/agent/status'); }
-  async registerPushToken(token: string, platform: string) { return this.request('/api/v1/notifications/register', { method: 'POST', body: { push_token: token, platform } }); }
+  // Real FastAPI endpoints using business_id
+  async getLeads(businessId: string, filters?: { period?: string }) {
+    return this.request<Lead[]>(`/api/leads/${businessId}`, { params: filters as any });
+  }
+  async getLead(id: string) {
+    return this.request<LeadDetail>(`/api/leads/detail/${id}`);
+  }
+  async updateLeadStatus(id: string, status: string) {
+    return this.request(`/api/leads/${id}/status`, { method: 'PATCH', body: { status } });
+  }
+  async getDashboardStats(businessId: string) {
+    return this.request<DashboardStats>(`/api/dashboard/${businessId}`);
+  }
+  async getAgentStatus(businessId: string) {
+    return this.request<AgentStatus>(`/api/agent/${businessId}/status`);
+  }
+  async toggleAgent(businessId: string) {
+    return this.request<AgentStatus>(`/api/agent/${businessId}/toggle`, { method: 'POST' });
+  }
+  async registerPushToken(token: string, platform: string) {
+    return this.request('/api/notifications/register', { method: 'POST', body: { push_token: token, platform } });
+  }
 }
 
 export interface Lead {
