@@ -1,5 +1,16 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking, Alert, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Linking,
+  Alert,
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +22,8 @@ import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 import { api } from '../../lib/api';
 import type { LeadDetail, Lead } from '../../lib/api';
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -71,7 +84,231 @@ const MOCK_DETAILS: Record<string, Partial<LeadDetail>> = {
   },
 };
 
-// ── Component ─────────────────────────────────────────────────
+// ── Shimmer ──────────────────────────────────────────────────
+
+function ShimmerOverlay() {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.delay(4000),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View
+      style={[
+        st.shimmer,
+        { transform: [{ translateX: anim.interpolate({ inputRange: [0, 1], outputRange: [-SCREEN_W, SCREEN_W] }) }] },
+      ]}
+    >
+      <LinearGradient
+        colors={['transparent', 'rgba(255,255,255,0.03)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.03)', 'transparent']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Animated.View>
+  );
+}
+
+// ── Gradient Action Button ───────────────────────────────────
+
+function ActionButton({
+  icon,
+  label,
+  colors,
+  onPress,
+}: {
+  icon: IoniconsName;
+  label: string;
+  colors: readonly [string, string];
+  onPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  return (
+    <Pressable
+      onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, friction: 8 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
+      onPress={onPress}
+      style={st.actionBtn}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <LinearGradient
+          colors={colors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={st.actionCircle}
+        >
+          <Ionicons name={icon} size={22} color="#fff" />
+        </LinearGradient>
+      </Animated.View>
+      <Text style={st.actionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+// ── Animated Status Button ───────────────────────────────────
+
+function StatusButton({
+  opt,
+  active,
+  onPress,
+}: {
+  opt: (typeof STATUS_OPTIONS)[number];
+  active: boolean;
+  onPress: () => void;
+}) {
+  const borderAnim = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(borderAnim, { toValue: active ? 1 : 0, duration: 300, useNativeDriver: false }).start();
+  }, [active]);
+
+  const borderColor = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.border as string, opt.color],
+  });
+  const bgColor = borderAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['transparent', `${opt.color}15`],
+  });
+
+  return (
+    <Pressable
+      onPressIn={() => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, friction: 8 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
+      onPress={onPress}
+    >
+      <Animated.View
+        style={[
+          st.statusBtn,
+          { borderColor, backgroundColor: bgColor, transform: [{ scale }] },
+        ]}
+      >
+        <Ionicons name={opt.icon} size={18} color={active ? opt.color : Colors.textMuted} />
+        <Text style={[st.statusBtnText, active && { color: opt.color }]}>{opt.label}</Text>
+        {active && (
+          <View style={[st.activeCheck, { backgroundColor: opt.color }]}>
+            <Ionicons name="checkmark" size={10} color="#fff" />
+          </View>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ── Animated Chat Bubble ─────────────────────────────────────
+
+function ChatBubble({
+  line,
+  index,
+}: {
+  line: string;
+  index: number;
+}) {
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const isAgent = line.startsWith('Agent:');
+  const isCaller = line.startsWith('Caller:');
+  const content = line.replace(/^(Agent|Caller):\s*/, '');
+
+  useEffect(() => {
+    Animated.timing(fadeIn, { toValue: 1, duration: 400, delay: index * 80, useNativeDriver: true }).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        st.msgRow,
+        isAgent && st.msgRowAgent,
+        {
+          opacity: fadeIn,
+          transform: [{ translateY: fadeIn.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+        },
+      ]}
+    >
+      <View style={[st.msgBubble, isAgent ? st.msgBubbleAgent : st.msgBubbleCaller]}>
+        <Text style={[st.msgSender, { color: isAgent ? Colors.electric : Colors.warning }]}>
+          {isAgent ? 'AI Agent' : isCaller ? 'Caller' : ''}
+        </Text>
+        <Text style={st.msgText}>{content}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ── Pulsing Play Button ──────────────────────────────────────
+
+function PulsingPlayButton({ onPress, recordingUrl }: { onPress: () => void; recordingUrl: string }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Pressable
+      onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, friction: 8 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
+      onPress={onPress}
+    >
+      <Animated.View style={[st.recordingCard, { transform: [{ scale }] }]}>
+        <ShimmerOverlay />
+        <View style={st.recordingLeft}>
+          <Animated.View style={{ transform: [{ scale: pulse }] }}>
+            <LinearGradient
+              colors={Colors.gradientElectric}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={st.recordingIcon}
+            >
+              <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 2 }} />
+            </LinearGradient>
+          </Animated.View>
+          <View>
+            <Text style={st.recordingTitle}>Call Recording</Text>
+            <Text style={st.recordingSub}>Tap to play audio</Text>
+          </View>
+        </View>
+        <Ionicons name="open-outline" size={18} color={Colors.textMuted} />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ── Section Label ────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <View style={st.sectionLabelRow}>
+      <View style={st.sectionDot} />
+      <Text style={st.sectionLabel}>{children}</Text>
+    </View>
+  );
+}
+
+// ── Info Row ─────────────────────────────────────────────────
+
+function InfoRow({ icon, label, value, isLast }: { icon: IoniconsName; label: string; value: string; isLast?: boolean }) {
+  return (
+    <View style={[st.infoRow, !isLast && st.infoRowBorder]}>
+      <Ionicons name={icon} size={16} color={Colors.textMuted} />
+      <Text style={st.infoLabel}>{label}</Text>
+      <Text style={st.infoValue} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────────
 
 export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,8 +320,13 @@ export default function LeadDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [currentStatus, setCurrentStatus] = useState<LeadStatus>('new');
 
-  // Find lead in store first, then try fetching detail from API
   const storeLead = leads.find((l) => l.id === id);
+
+  // Header fade-in
+  const headerFade = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(headerFade, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+  }, [loading]);
 
   useEffect(() => {
     let mounted = true;
@@ -96,7 +338,6 @@ export default function LeadDetailScreen() {
           setCurrentStatus(data.status);
         }
       } catch {
-        // API unavailable — build mock detail from store lead
         if (mounted && storeLead) {
           const mock = MOCK_DETAILS[id!] || {};
           setDetail({
@@ -151,6 +392,11 @@ export default function LeadDetailScreen() {
   if (loading || !lead) {
     return (
       <View style={[st.loadingWrap, { paddingTop: insets.top }]}>
+        <LinearGradient
+          colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+          locations={[0, 0.7, 1]}
+          style={StyleSheet.absoluteFill}
+        />
         <Pressable onPress={() => router.back()} style={st.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </Pressable>
@@ -168,19 +414,24 @@ export default function LeadDetailScreen() {
     );
   }
 
-  // ── Transcript lines ──
-
   const transcriptLines = (detail?.transcript || '').split('\n').filter(Boolean);
 
   return (
-    <View style={[st.screen, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={st.header}>
-        <Pressable onPress={() => router.back()} style={st.backBtn} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-        </Pressable>
-        <Text style={st.headerTitle}>Lead Details</Text>
-        <View style={{ width: 40 }} />
+    <View style={st.screen}>
+      <LinearGradient
+        colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+        locations={[0, 0.7, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ paddingTop: insets.top }}>
+        {/* Header */}
+        <View style={st.header}>
+          <Pressable onPress={() => router.back()} style={st.backBtn} hitSlop={8}>
+            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+          </Pressable>
+          <Text style={st.headerTitle}>Lead Details</Text>
+          <View style={{ width: 40 }} />
+        </View>
       </View>
 
       <ScrollView
@@ -188,8 +439,9 @@ export default function LeadDetailScreen() {
         contentContainerStyle={st.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Card */}
-        <View style={st.profileCard}>
+        {/* Profile Card — Glassmorphism */}
+        <Animated.View style={[st.profileCard, { opacity: headerFade, transform: [{ translateY: headerFade.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+          <ShimmerOverlay />
           <LinearGradient
             colors={Colors.gradientElectric}
             start={{ x: 0, y: 0 }}
@@ -203,35 +455,36 @@ export default function LeadDetailScreen() {
           <Text style={st.profileTime}>
             {formatDate(lead.created_at)} at {formatTime(lead.created_at)} · {getTimeAgo(lead.created_at)}
           </Text>
-        </View>
+        </Animated.View>
 
-        {/* Quick Actions */}
+        {/* Gradient Action Buttons */}
         <View style={st.actionsRow}>
-          <Pressable style={st.actionBtn} onPress={handleCall}>
-            <View style={[st.actionCircle, { backgroundColor: Colors.successGlow }]}>
-              <Ionicons name="call" size={20} color={Colors.success} />
-            </View>
-            <Text style={st.actionLabel}>Call</Text>
-          </Pressable>
-          <Pressable style={st.actionBtn} onPress={handleText}>
-            <View style={[st.actionCircle, { backgroundColor: Colors.electricMuted }]}>
-              <Ionicons name="chatbubble" size={20} color={Colors.electric} />
-            </View>
-            <Text style={st.actionLabel}>Text</Text>
-          </Pressable>
+          <ActionButton
+            icon="call"
+            label="Call"
+            colors={[Colors.success, '#059669'] as const}
+            onPress={handleCall}
+          />
+          <ActionButton
+            icon="chatbubble"
+            label="Text"
+            colors={Colors.gradientElectric}
+            onPress={handleText}
+          />
           {detail?.caller_email ? (
-            <Pressable style={st.actionBtn} onPress={handleEmail}>
-              <View style={[st.actionCircle, { backgroundColor: Colors.warningGlow }]}>
-                <Ionicons name="mail" size={20} color={Colors.warning} />
-              </View>
-              <Text style={st.actionLabel}>Email</Text>
-            </Pressable>
+            <ActionButton
+              icon="mail"
+              label="Email"
+              colors={[Colors.warning, '#D97706'] as const}
+              onPress={handleEmail}
+            />
           ) : null}
         </View>
 
         {/* Contact Info */}
         <SectionLabel>Contact Info</SectionLabel>
         <View style={st.card}>
+          <ShimmerOverlay />
           <InfoRow icon="call-outline" label="Phone" value={lead.caller_phone} />
           {detail?.caller_email ? (
             <InfoRow icon="mail-outline" label="Email" value={detail.caller_email} />
@@ -242,51 +495,31 @@ export default function LeadDetailScreen() {
         {/* Summary */}
         <SectionLabel>AI Summary</SectionLabel>
         <View style={st.card}>
+          <ShimmerOverlay />
           <Text style={st.summaryText}>{lead.summary}</Text>
         </View>
 
         {/* Status Update */}
         <SectionLabel>Update Status</SectionLabel>
         <View style={st.statusGrid}>
-          {STATUS_OPTIONS.map((opt) => {
-            const active = currentStatus === opt.key;
-            return (
-              <Pressable
-                key={opt.key}
-                style={[st.statusBtn, active && { borderColor: opt.color, backgroundColor: `${opt.color}15` }]}
-                onPress={() => { if (!active) handleStatusChange(opt.key); }}
-              >
-                <Ionicons name={opt.icon} size={18} color={active ? opt.color : Colors.textMuted} />
-                <Text style={[st.statusBtnText, active && { color: opt.color }]}>{opt.label}</Text>
-                {active && (
-                  <View style={[st.activeCheck, { backgroundColor: opt.color }]}>
-                    <Ionicons name="checkmark" size={10} color="#fff" />
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
+          {STATUS_OPTIONS.map((opt) => (
+            <StatusButton
+              key={opt.key}
+              opt={opt}
+              active={currentStatus === opt.key}
+              onPress={() => { if (currentStatus !== opt.key) handleStatusChange(opt.key); }}
+            />
+          ))}
         </View>
 
         {/* Transcript */}
         <SectionLabel>Call Transcript</SectionLabel>
         <View style={st.card}>
+          <ShimmerOverlay />
           {transcriptLines.length > 0 ? (
-            transcriptLines.map((line, i) => {
-              const isAgent = line.startsWith('Agent:');
-              const isCaller = line.startsWith('Caller:');
-              const content = line.replace(/^(Agent|Caller):\s*/, '');
-              return (
-                <View key={i} style={[st.msgRow, isAgent && st.msgRowAgent]}>
-                  <View style={[st.msgBubble, isAgent ? st.msgBubbleAgent : st.msgBubbleCaller]}>
-                    <Text style={[st.msgSender, { color: isAgent ? Colors.electric : Colors.warning }]}>
-                      {isAgent ? 'AI Agent' : isCaller ? 'Caller' : ''}
-                    </Text>
-                    <Text style={st.msgText}>{content}</Text>
-                  </View>
-                </View>
-              );
-            })
+            transcriptLines.map((line, i) => (
+              <ChatBubble key={i} line={line} index={i} />
+            ))
           ) : (
             <Text style={st.emptyText}>No transcript available</Text>
           )}
@@ -296,21 +529,10 @@ export default function LeadDetailScreen() {
         {detail?.recording_url ? (
           <>
             <SectionLabel>Recording</SectionLabel>
-            <Pressable
-              style={st.recordingCard}
+            <PulsingPlayButton
               onPress={() => Linking.openURL(detail.recording_url!)}
-            >
-              <View style={st.recordingLeft}>
-                <View style={st.recordingIcon}>
-                  <Ionicons name="play-circle" size={28} color={Colors.electric} />
-                </View>
-                <View>
-                  <Text style={st.recordingTitle}>Call Recording</Text>
-                  <Text style={st.recordingSub}>Tap to play audio</Text>
-                </View>
-              </View>
-              <Ionicons name="open-outline" size={18} color={Colors.textMuted} />
-            </Pressable>
+              recordingUrl={detail.recording_url}
+            />
           </>
         ) : null}
 
@@ -319,6 +541,7 @@ export default function LeadDetailScreen() {
           <>
             <SectionLabel>Notes</SectionLabel>
             <View style={st.card}>
+              <ShimmerOverlay />
               <Text style={st.notesText}>{detail.notes}</Text>
             </View>
           </>
@@ -330,35 +553,20 @@ export default function LeadDetailScreen() {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: string }) {
-  return <Text style={st.sectionLabel}>{children}</Text>;
-}
-
-type IoniconsNameType = React.ComponentProps<typeof Ionicons>['name'];
-
-function InfoRow({ icon, label, value, isLast }: { icon: IoniconsNameType; label: string; value: string; isLast?: boolean }) {
-  return (
-    <View style={[st.infoRow, !isLast && st.infoRowBorder]}>
-      <Ionicons name={icon} size={16} color={Colors.textMuted} />
-      <Text style={st.infoLabel}>{label}</Text>
-      <Text style={st.infoValue} numberOfLines={1}>{value}</Text>
-    </View>
-  );
-}
-
 // ── Styles ────────────────────────────────────────────────────
 
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.bgPrimary },
 
-  // Loading
+  /* Shimmer */
+  shimmer: { position: 'absolute', top: 0, bottom: 0, width: SCREEN_W * 0.6, zIndex: 1 },
+
+  /* Loading */
   loadingWrap: { flex: 1, backgroundColor: Colors.bgPrimary, paddingHorizontal: ScreenPadding.horizontal },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
   loadingText: { ...TextStyles.body, color: Colors.textMuted },
 
-  // Header
+  /* Header */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,19 +586,25 @@ const st = StyleSheet.create({
   },
   headerTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.h4, color: Colors.textPrimary },
 
-  // Scroll
+  /* Scroll */
   scrollView: { flex: 1 },
   scroll: { paddingHorizontal: ScreenPadding.horizontal },
 
-  // Profile card
+  /* Profile card */
   profileCard: {
     alignItems: 'center',
     paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.base,
     gap: Spacing.sm,
+    backgroundColor: Colors.bgCard,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.borderElectric,
+    overflow: 'hidden',
   },
   avatar: {
-    width: 72,
-    height: 72,
+    width: 76,
+    height: 76,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -400,45 +614,53 @@ const st = StyleSheet.create({
   profileName: { ...TextStyles.h2, color: Colors.textPrimary },
   profileTime: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: Spacing.xs },
 
-  // Quick actions
+  /* Actions */
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: Spacing['2xl'],
-    marginBottom: Spacing.lg,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
-  actionBtn: { alignItems: 'center', gap: Spacing.xs },
+  actionBtn: { alignItems: 'center', gap: Spacing.sm },
   actionCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionLabel: { ...Fonts.bodyMedium, fontSize: TypeScale.caption, color: Colors.textSecondary },
 
-  // Section label
+  /* Section label */
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.xs,
+  },
+  sectionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.electric },
   sectionLabel: {
     ...Fonts.bodyMedium,
     fontSize: TypeScale.caption,
     color: Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-    marginLeft: Spacing.xs,
   },
 
-  // Card
+  /* Card */
   card: {
     backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: Spacing.base,
+    overflow: 'hidden',
   },
 
-  // Info rows
+  /* Info rows */
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -449,10 +671,10 @@ const st = StyleSheet.create({
   infoLabel: { ...Fonts.bodyMedium, fontSize: TypeScale.bodySm, color: Colors.textMuted, width: 56 },
   infoValue: { ...Fonts.body, fontSize: TypeScale.body, color: Colors.textPrimary, flex: 1 },
 
-  // Summary
+  /* Summary */
   summaryText: { ...Fonts.body, fontSize: TypeScale.body, color: Colors.textSecondary, lineHeight: TypeScale.body * 1.5 },
 
-  // Status grid
+  /* Status grid */
   statusGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -464,8 +686,7 @@ const st = StyleSheet.create({
     gap: Spacing.sm,
     backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderWidth: 1.5,
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     flexGrow: 1,
@@ -481,7 +702,7 @@ const st = StyleSheet.create({
     marginLeft: 'auto',
   },
 
-  // Transcript messages
+  /* Transcript messages */
   msgRow: { marginBottom: Spacing.sm },
   msgRowAgent: { alignItems: 'flex-start' },
   msgBubble: {
@@ -489,13 +710,13 @@ const st = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
-  msgBubbleAgent: { backgroundColor: Colors.bgElevated, alignSelf: 'flex-start' },
-  msgBubbleCaller: { backgroundColor: Colors.bgInput, alignSelf: 'flex-end' },
+  msgBubbleAgent: { backgroundColor: Colors.bgElevated, alignSelf: 'flex-start', borderBottomLeftRadius: BorderRadius.sm },
+  msgBubbleCaller: { backgroundColor: Colors.bgInput, alignSelf: 'flex-end', borderBottomRightRadius: BorderRadius.sm },
   msgSender: { ...Fonts.bodySemibold, fontSize: TypeScale.tiny, letterSpacing: 0.3, marginBottom: 4 },
   msgText: { ...Fonts.body, fontSize: TypeScale.bodySm, color: Colors.textSecondary, lineHeight: TypeScale.bodySm * 1.5 },
   emptyText: { ...Fonts.body, fontSize: TypeScale.bodySm, color: Colors.textMuted, fontStyle: 'italic' },
 
-  // Recording
+  /* Recording */
   recordingCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -505,19 +726,19 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderElectric,
     padding: Spacing.base,
+    overflow: 'hidden',
   },
   recordingLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   recordingIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.electricMuted,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recordingTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
   recordingSub: { ...Fonts.body, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 1 },
 
-  // Notes
+  /* Notes */
   notesText: { ...Fonts.body, fontSize: TypeScale.body, color: Colors.textSecondary, lineHeight: TypeScale.body * 1.5, fontStyle: 'italic' },
 });
