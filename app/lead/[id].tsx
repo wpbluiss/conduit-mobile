@@ -15,7 +15,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Audio } from 'expo-av';
+// expo-av crashes in Expo Go — load dynamically
+let AudioModule: any = null;
+try { AudioModule = require('expo-av').Audio; } catch (e) { console.warn('expo-av not available'); }
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, StatusColors } from '../../constants/colors';
@@ -245,7 +247,7 @@ function ChatBubble({
 // ── Audio Player ─────────────────────────────────────────────
 
 function AudioPlayer({ recordingUrl }: { recordingUrl: string }) {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [sound, setSound] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState(0);
@@ -278,6 +280,12 @@ function AudioPlayer({ recordingUrl }: { recordingUrl: string }) {
   const handlePlayPause = async () => {
     if (isLoading) return;
 
+    // expo-av not available (Expo Go) — fall back to opening URL
+    if (!AudioModule) {
+      Linking.openURL(recordingUrl);
+      return;
+    }
+
     if (sound) {
       if (isPlaying) {
         await sound.pauseAsync();
@@ -291,11 +299,11 @@ function AudioPlayer({ recordingUrl }: { recordingUrl: string }) {
 
     setIsLoading(true);
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound: newSound } = await Audio.Sound.createAsync(
+      await AudioModule.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound: newSound } = await AudioModule.Sound.createAsync(
         { uri: recordingUrl },
         { shouldPlay: true },
-        (status) => {
+        (status: any) => {
           if (status.isLoaded) {
             setPosition(status.positionMillis);
             setDuration(status.durationMillis || 0);
