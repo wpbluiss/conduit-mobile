@@ -11,7 +11,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
 
-// ── Mock Fallback Data ────────────────────────────────────────
+// ── Mock Data (guest mode only) ──────────────────────────────
 
 const MOCK_LEADS: Lead[] = [
   { id: '1', caller_name: 'Marcus Johnson', caller_phone: '(561) 555-0134', summary: 'Wants a fade haircut, available Saturday morning', status: 'new', created_at: new Date(Date.now() - 3 * 60000).toISOString(), business_id: '1' },
@@ -41,11 +41,30 @@ const MOCK_AGENT: AgentStatus = {
   total_calls_handled: 243,
 };
 
+const EMPTY_DASHBOARD: DashboardStats = {
+  leads_today: 0,
+  leads_this_week: 0,
+  leads_this_month: 0,
+  revenue_saved: 0,
+  capture_rate: 0,
+};
+
+const EMPTY_AGENT: AgentStatus = {
+  is_active: false,
+  agent_name: 'Conduit AI',
+  phone_number: '',
+  total_calls_handled: 0,
+};
+
 // ── Helper ────────────────────────────────────────────────────
 
 function getBusinessId(): string | null {
   const { user } = useAuthStore.getState();
   return user?.user_metadata?.business_id || user?.id || null;
+}
+
+function isGuest(): boolean {
+  return useAuthStore.getState().isGuestMode;
 }
 
 // ── Store ─────────────────────────────────────────────────────
@@ -80,58 +99,56 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   usingMockData: false,
 
   fetchLeads: async (filter) => {
-    // Guest mode: always use mock data
-    if (useAuthStore.getState().isGuestMode) {
+    if (isGuest()) {
       set({ leads: MOCK_LEADS, isLoading: false, usingMockData: true });
       return;
     }
+
+    // Authenticated user — real data only, never mock
     try {
       set({ isLoading: true, error: null });
-      // Try Supabase directly first
       const supabaseLeads = await getLeadsFromSupabase();
-      if (supabaseLeads.length > 0) {
-        set({ leads: supabaseLeads, isLoading: false, usingMockData: false });
-        return;
-      }
+      set({ leads: supabaseLeads, isLoading: false, usingMockData: false });
+      if (supabaseLeads.length > 0) return;
     } catch (err: any) {
       console.warn('[LeadsStore] Supabase query failed, trying API:', err.message);
     }
+
     // Fallback: try the FastAPI backend
     const businessId = getBusinessId();
     if (businessId) {
       try {
         const period = filter || get().filter;
         const leads = await api.getLeads(businessId, period !== 'all' ? { period } : undefined);
-        if (leads.length > 0) {
-          set({ leads, isLoading: false, usingMockData: false });
-          return;
-        }
+        set({ leads, isLoading: false, usingMockData: false });
+        return;
       } catch (err: any) {
         console.warn('[LeadsStore] API fallback failed:', err.message);
       }
     }
-    // Final fallback: mock data
-    set({ leads: MOCK_LEADS, isLoading: false, usingMockData: true });
+
+    // Auth user with no data = empty list, NOT mock data
+    set({ leads: [], isLoading: false, usingMockData: false, error: null });
   },
 
   fetchDashboard: async () => {
-    // Guest mode: always use mock data
-    if (useAuthStore.getState().isGuestMode) {
+    if (isGuest()) {
       set({ dashboardStats: MOCK_DASHBOARD, usingMockData: true });
       return;
     }
+
+    // Authenticated user — real data only
     try {
       set({ error: null });
-      // Try Supabase directly first
       const stats = await getDashboardStatsFromSupabase();
-      if (stats && (stats.leads_today > 0 || stats.leads_this_month > 0)) {
+      if (stats) {
         set({ dashboardStats: stats, usingMockData: false });
         return;
       }
     } catch (err: any) {
       console.warn('[LeadsStore] Supabase dashboard failed, trying API:', err.message);
     }
-    // Fallback: try the FastAPI backend
+
     const businessId = getBusinessId();
     if (businessId) {
       try {
@@ -142,39 +159,40 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
         console.warn('[LeadsStore] API dashboard fallback failed:', err.message);
       }
     }
-    // Final fallback: mock data
-    set({ dashboardStats: MOCK_DASHBOARD, usingMockData: true });
+
+    // Auth user with no data = zeros, NOT mock data
+    set({ dashboardStats: EMPTY_DASHBOARD, usingMockData: false });
   },
 
   fetchAgentStatus: async () => {
-    // Guest mode: always use mock data
-    if (useAuthStore.getState().isGuestMode) {
+    if (isGuest()) {
       set({ agentStatus: MOCK_AGENT, usingMockData: true });
       return;
     }
+
     const businessId = getBusinessId();
     if (!businessId) {
-      set({ agentStatus: MOCK_AGENT, usingMockData: true });
+      set({ agentStatus: EMPTY_AGENT, usingMockData: false });
       return;
     }
+
     try {
       set({ error: null });
       const status = await api.getAgentStatus(businessId);
       set({ agentStatus: status, usingMockData: false });
     } catch (err: any) {
-      console.warn('[LeadsStore] fetchAgentStatus failed, using mock data:', err.message);
-      set({ agentStatus: MOCK_AGENT, usingMockData: true });
+      console.warn('[LeadsStore] fetchAgentStatus failed:', err.message);
+      set({ agentStatus: EMPTY_AGENT, usingMockData: false });
     }
   },
 
   toggleAgent: async () => {
     const businessId = getBusinessId();
     if (!businessId) {
-      // Toggle mock state locally
       set((s) => ({
         agentStatus: s.agentStatus
           ? { ...s.agentStatus, is_active: !s.agentStatus.is_active }
-          : MOCK_AGENT,
+          : EMPTY_AGENT,
       }));
       return;
     }
@@ -184,18 +202,16 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       set({ agentStatus: updated });
     } catch (err: any) {
       console.warn('[LeadsStore] toggleAgent failed:', err.message);
-      // Optimistic toggle on failure so UI stays responsive
       set((s) => ({
         agentStatus: s.agentStatus
           ? { ...s.agentStatus, is_active: !s.agentStatus.is_active }
-          : MOCK_AGENT,
+          : EMPTY_AGENT,
         error: 'Failed to toggle agent. Change may not persist.',
       }));
     }
   },
 
   updateLeadStatus: async (id, status) => {
-    // Optimistic update
     set((s) => ({ leads: s.leads.map((l) => l.id === id ? { ...l, status: status as Lead['status'] } : l) }));
     try {
       await updateLeadStatusInSupabase(id, status);
@@ -218,7 +234,6 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   subscribeToRealtime: (businessId) => {
-    // businessId here is actually the client_id from the clients table
     const channel = supabase
       .channel('calls-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls', filter: `client_id=eq.${businessId}` },
