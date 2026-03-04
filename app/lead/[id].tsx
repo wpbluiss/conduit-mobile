@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, StatusColors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 import { api, getLeadDetailFromSupabase } from '../../lib/api';
@@ -311,6 +312,7 @@ function InfoRow({ icon, label, value, isLast }: { icon: IoniconsName; label: st
 // ── Main Component ───────────────────────────────────────────
 
 export default function LeadDetailScreen() {
+  const { colors, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -405,9 +407,9 @@ export default function LeadDetailScreen() {
 
   if (loading || !lead) {
     return (
-      <View style={[st.loadingWrap, { paddingTop: insets.top }]}>
+      <View style={[st.loadingWrap, { paddingTop: insets.top, backgroundColor: colors.bgPrimary }]}>
         <LinearGradient
-          colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+          colors={[colors.bgPrimary, colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
           locations={[0, 0.7, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -431,9 +433,9 @@ export default function LeadDetailScreen() {
   const transcriptLines = (detail?.transcript || '').split('\n').filter(Boolean);
 
   return (
-    <View style={st.screen}>
+    <View style={[st.screen, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
-        colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+        colors={[colors.bgPrimary, colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.7, 1]}
         style={StyleSheet.absoluteFill}
       />

@@ -27,6 +27,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -43,6 +44,7 @@ const BUSINESS_TYPES = [
 type BusinessType = (typeof BUSINESS_TYPES)[number];
 
 export default function SignUpScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { signUp, isLoading } = useAuthStore();
 
@@ -108,7 +110,7 @@ export default function SignUpScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={st.container}
+      style={[st.container, { backgroundColor: colors.bgVoid }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <Animated.View style={[st.ambientGlow, glowS]}>

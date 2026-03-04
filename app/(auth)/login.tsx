@@ -19,6 +19,7 @@ import { Image } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -437,6 +438,7 @@ function SignInButton({
 // ── Main Screen ───────────────────────────────────────────────
 
 export default function LoginScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { signIn, isLoading } = useAuthStore();
   const [email, setEmail] = useState('');
@@ -489,7 +491,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={st.container}
+      style={[st.container, { backgroundColor: colors.bgVoid }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <AnimatedBackground />

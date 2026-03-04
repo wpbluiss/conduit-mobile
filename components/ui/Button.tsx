@@ -4,6 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { BorderRadius, Spacing } from '../../constants/layout';
 import { Springs } from '../../constants/animations';
@@ -14,6 +15,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 interface ButtonProps { title: string; onPress: () => void; variant?: Variant; size?: 'sm' | 'md' | 'lg'; loading?: boolean; disabled?: boolean; icon?: React.ReactNode; style?: ViewStyle; textStyle?: TextStyle; fullWidth?: boolean; }
 
 export function Button({ title, onPress, variant = 'primary', size = 'md', loading = false, disabled = false, icon, style, textStyle, fullWidth = false }: ButtonProps) {
+  const { colors, isDark } = useTheme();
   const scale = useSharedValue(1);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const pressIn = () => { scale.value = withSpring(0.96, Springs.snappy); };
@@ -34,7 +36,7 @@ export function Button({ title, onPress, variant = 'primary', size = 'md', loadi
         <LinearGradient colors={off ? ['#1e3a5f', '#1a2e4a'] : ['#0EA5E9', '#0284C7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={[s.base, { height: h, paddingHorizontal: px }, !off && s.shadow, style]}>{content}</LinearGradient>
       ) : (
-        <Animated.View style={[s.base, { height: h, paddingHorizontal: px }, variant === 'secondary' && s.sec, variant === 'ghost' && s.ghost, off && { opacity: 0.4 }, style]}>{content}</Animated.View>
+        <Animated.View style={[s.base, { height: h, paddingHorizontal: px }, variant === 'secondary' && [s.sec, { borderColor: colors.electricBorder }], variant === 'ghost' && s.ghost, off && { opacity: 0.4 }, style]}>{content}</Animated.View>
       )}
     </AP>
   );

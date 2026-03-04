@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Colors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -200,6 +201,7 @@ function StepItem({ num, title, desc }: { num: number; title: string; desc: stri
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function AffiliatesScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [data, setData] = useState<AffiliateStats>(MOCK_STATS);
   const [copied, setCopied] = useState(false);
@@ -228,7 +230,7 @@ export default function AffiliatesScreen() {
   }, [code]);
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
         colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.6, 1]}

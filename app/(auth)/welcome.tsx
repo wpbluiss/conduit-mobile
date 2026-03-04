@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/authStore';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -80,6 +81,7 @@ function Particles() {
 }
 
 export default function WelcomeScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -211,7 +213,7 @@ export default function WelcomeScreen() {
   });
 
   return (
-    <View style={st.container}>
+    <View style={[st.container, { backgroundColor: colors.bgVoid }]}>
       {/* Animated gradient background */}
       <Animated.View
         style={[

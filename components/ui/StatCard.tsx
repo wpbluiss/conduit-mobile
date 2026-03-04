@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import Animated, { FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { BorderRadius, Spacing } from '../../constants/layout';
 import { Stagger } from '../../constants/animations';
@@ -10,9 +11,10 @@ import { AnimatedNumber } from './AnimatedNumber';
 interface StatCardProps { label: string; value: number; prefix?: string; suffix?: string; decimals?: number; icon?: React.ReactNode; trend?: { value: number; direction: 'up' | 'down' }; accentColor?: string; index?: number; style?: ViewStyle; }
 
 export function StatCard({ label, value, prefix = '', suffix = '', decimals = 0, icon, trend, accentColor = Colors.electric, index = 0, style }: StatCardProps) {
+  const { colors, isDark } = useTheme();
   const enterDelay = index * Stagger.fast;
   return (
-    <Animated.View entering={FadeInUp.delay(enterDelay).springify().damping(18).stiffness(140)} style={[st.card, style]}>
+    <Animated.View entering={FadeInUp.delay(enterDelay).springify().damping(18).stiffness(140)} style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.electricBorder }, style]}>
       <View style={[st.accent, { backgroundColor: accentColor }]} />
       <View style={st.header}>
         {icon && <View style={st.iconWrap}>{icon}</View>}

@@ -17,6 +17,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Colors, StatusColors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -212,6 +213,7 @@ function FilterPill({
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function CallsScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { leads, isRefreshing, fetchLeads, refresh } = useLeadsStore();
@@ -252,7 +254,7 @@ export default function CallsScreen() {
   const searchShadow = searchGlow.interpolate({ inputRange: [0, 1], outputRange: [0, 0.25] });
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
         colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.7, 1]}

@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/authStore';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { TextStyles, Fonts, TypeScale } from '../../constants/typography';
 import { ScreenPadding, Spacing, BorderRadius } from '../../constants/layout';
 import { api } from '../../lib/api';
@@ -544,6 +545,7 @@ const MOCK_INVOICES: Invoice[] = [
 // ── Main Screen ─────────────────────────────────────────────
 
 export default function SettingsScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signOut, user, isGuestMode, setGuestMode } = useAuthStore();
@@ -739,9 +741,9 @@ export default function SettingsScreen() {
     : 'No calls yet';
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
-        colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+        colors={[colors.bgPrimary, colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.7, 1]}
         style={StyleSheet.absoluteFill}
       />

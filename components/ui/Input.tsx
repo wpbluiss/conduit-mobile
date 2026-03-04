@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, TextInputProps, Pressable } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, interpolateColor } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { BorderRadius, Spacing } from '../../constants/layout';
 
 interface InputProps extends TextInputProps { label?: string; error?: string; icon?: React.ReactNode; rightIcon?: React.ReactNode; onRightIconPress?: () => void; }
 
 export function Input({ label, error, icon, rightIcon, onRightIconPress, style, ...props }: InputProps) {
+  const { colors, isDark } = useTheme();
   const fp = useSharedValue(0);
   const focus = () => { fp.value = withTiming(1, { duration: 150 }); };
   const blur = () => { fp.value = withTiming(0, { duration: 150 }); };
@@ -17,7 +19,7 @@ export function Input({ label, error, icon, rightIcon, onRightIconPress, style, 
   return (
     <View style={st.wrap}>
       {label && <Text style={st.label}>{label}</Text>}
-      <Animated.View style={[st.container, cs]}>
+      <Animated.View style={[st.container, { backgroundColor: colors.bgInput }, cs]}>
         {icon && <View style={st.iconL}>{icon}</View>}
         <TextInput {...props} style={[st.input, icon ? { paddingLeft: 0 } : undefined, style]} placeholderTextColor={Colors.textMuted} onFocus={focus} onBlur={blur} selectionColor={Colors.electric} />
         {rightIcon && <Pressable onPress={onRightIconPress} style={st.iconR}>{rightIcon}</Pressable>}

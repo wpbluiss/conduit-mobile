@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function NotificationBanner({ data, onPress, onDismiss }: Props) {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-(BANNER_HEIGHT + insets.top + 20))).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -94,8 +96,8 @@ export function NotificationBanner({ data, onPress, onDismiss }: Props) {
         style={st.pressable}
       >
         <View style={st.cardOuter}>
-          <BlurView intensity={30} tint="dark" style={st.blur}>
-            <View style={st.cardInner}>
+          <BlurView intensity={30} tint={isDark ? 'dark' : 'light'} style={st.blur}>
+            <View style={[st.cardInner, { backgroundColor: isDark ? 'rgba(17, 24, 39, 0.8)' : 'rgba(255, 255, 255, 0.85)' }]}>
               <View style={[st.accentBar, { backgroundColor: accentColor }]} />
               <View style={[st.iconWrap, { backgroundColor: `${accentColor}20` }]}>
                 <Ionicons name={icon} size={20} color={accentColor} />

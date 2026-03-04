@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../components/ui/Button';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Colors } from '../../constants/colors';
 import { TextStyles, Fonts, TypeScale } from '../../constants/typography';
 import { ScreenPadding, Spacing, BorderRadius } from '../../constants/layout';
@@ -627,6 +628,7 @@ function AddFAQModal({
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function AgentScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [config, setConfig] = useState<AgentConfig>(DEFAULT_CONFIG);
@@ -802,7 +804,7 @@ export default function AgentScreen() {
   const isExpanded = (section: string) => expandedSections.has(section);
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
         colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.7, 1]}

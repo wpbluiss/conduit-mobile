@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Colors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -421,6 +422,7 @@ function ConversationDetail({
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function MessagesScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -465,7 +467,7 @@ export default function MessagesScreen() {
   }
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
         colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.6, 1]}

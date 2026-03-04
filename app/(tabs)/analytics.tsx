@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Colors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -196,6 +197,7 @@ function ShimmerCard({ children, style }: { children: React.ReactNode; style?: a
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function AnalyticsScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<PeriodKey>('7d');
 
@@ -211,7 +213,7 @@ export default function AnalyticsScreen() {
   ];
 
   return (
-    <View style={st.root}>
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
         colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
         locations={[0, 0.65, 1]}

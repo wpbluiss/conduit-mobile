@@ -17,6 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -24,6 +25,7 @@ const { width } = Dimensions.get('window');
 const TOTAL_STEPS = 4;
 
 export default function OnboardingScreen() {
+  const { colors, isDark } = useTheme();
   const router = useRouter();
   const { user } = useAuthStore();
   const [step, setStep] = useState(0);
@@ -82,7 +84,7 @@ export default function OnboardingScreen() {
   const assignedNumber = '(555) 012-3456';
 
   return (
-    <View style={st.container}>
+    <View style={[st.container, { backgroundColor: colors.bgVoid }]}>
       {/* Progress Bar */}
       <View style={st.progressWrap}>
         <View style={st.progressTrack}>
