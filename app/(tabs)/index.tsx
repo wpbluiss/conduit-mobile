@@ -274,8 +274,14 @@ export default function DashboardScreen() {
   const stats = dashboardStats || { leads_today: 0, leads_this_week: 0, leads_this_month: 0, revenue_saved: 0, capture_rate: 0 };
   const recentLeads = leads.slice(0, 5);
   const meta = user?.user_metadata;
-  const name = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || '';
-  const firstName = isGuestMode ? 'Guest' : (name.split(' ')[0] || 'there');
+  const fullName = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || '';
+  const emailName = user?.email ? user.email.split('@')[0].replace(/[._-]/g, ' ') : '';
+  const displayName = fullName || emailName;
+  const firstName = isGuestMode ? 'Guest' : (displayName.split(' ')[0] || 'there');
+  const nameParts = displayName.split(' ').filter(Boolean);
+  const initials = isGuestMode ? 'G' : nameParts.length >= 2
+    ? (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase()
+    : (nameParts[0]?.charAt(0) || '?').toUpperCase();
   const biz = isGuestMode ? 'Demo Mode' : (meta?.business_name || '');
   const active = agentStatus?.is_active ?? false;
 
@@ -333,7 +339,7 @@ export default function DashboardScreen() {
                 {biz ? <Text style={[st.bizName, { color: colors.textMuted }]}>{biz}</Text> : null}
               </View>
               <LinearGradient colors={colors.gradientElectric as any} style={st.headerAvatar}>
-                <Text style={st.headerAvatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+                <Text style={st.headerAvatarText}>{initials}</Text>
               </LinearGradient>
             </View>
           </BlurView>
@@ -369,21 +375,21 @@ export default function DashboardScreen() {
         <FeatureCard
           icon="card-outline"
           title="Payments & Deposits"
-          subtitle={stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} collected` : 'View payments'}
+          subtitle={isGuestMode && stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} collected` : 'View payments'}
           gradientColors={colors.gradientElectric as any}
           onPress={() => router.push('/payments' as any)}
         />
         <FeatureCard
           icon="calendar-outline"
           title="Calendar & Bookings"
-          subtitle={stats.leads_this_week ? `${stats.leads_this_week} this week` : 'View bookings'}
+          subtitle={isGuestMode && stats.leads_this_week ? `${stats.leads_this_week} this week` : 'View bookings'}
           gradientColors={[colors.cyan, colors.electric]}
           onPress={() => router.push('/calendar' as any)}
         />
         <FeatureCard
           icon="trending-up"
           title="Revenue Dashboard"
-          subtitle={stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} saved` : 'View revenue'}
+          subtitle={isGuestMode && stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} saved` : 'View revenue'}
           gradientColors={[colors.success, colors.cyan]}
           onPress={() => router.push('/revenue' as any)}
         />

@@ -5,6 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import { useAuthStore } from '../../store/authStore';
+import { useLeadsStore } from '../../store/leadsStore';
 import { Colors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -196,10 +198,36 @@ function ShimmerCard({ children, style }: { children: React.ReactNode; style?: a
 
 // ── Main Screen ──────────────────────────────────────────────
 
+function EmptyAnalytics({ colors }: { colors: any }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
+      <ScrollView style={[st.container, { paddingTop: insets.top }]} contentContainerStyle={[st.scroll, { flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={[st.title, { color: colors.textPrimary, textAlign: 'center' }]}>Analytics</Text>
+        <View style={{ alignItems: 'center', paddingVertical: Spacing['3xl'], gap: Spacing.md }}>
+          <Ionicons name="stats-chart-outline" size={56} color={colors.textMuted} />
+          <Text style={{ ...Fonts.bodySemibold, fontSize: TypeScale.h3, color: colors.textSecondary, textAlign: 'center' }}>No analytics yet</Text>
+          <Text style={{ ...Fonts.body, fontSize: TypeScale.bodySm, color: colors.textMuted, textAlign: 'center', maxWidth: 260 }}>
+            Start capturing leads to see your data here.
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
 export default function AnalyticsScreen() {
   const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<PeriodKey>('7d');
+  const { isGuestMode } = useAuthStore();
+  const { leads, dashboardStats } = useLeadsStore();
+
+  // Authenticated users with no real data → empty state
+  const hasRealData = !isGuestMode && (leads.length > 0 || (dashboardStats && dashboardStats.leads_this_month > 0));
+  if (!isGuestMode && !hasRealData) {
+    return <EmptyAnalytics colors={colors} />;
+  }
 
   const stats = MOCK_STATS[period];
   const dailyData = DAILY_LEADS[period];
