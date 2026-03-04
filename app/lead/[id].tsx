@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Audio } from 'expo-av';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, StatusColors } from '../../constants/colors';
@@ -241,26 +242,91 @@ function ChatBubble({
   );
 }
 
-// ── Pulsing Play Button ──────────────────────────────────────
+// ── Audio Player ─────────────────────────────────────────────
 
-function PulsingPlayButton({ onPress, recordingUrl }: { onPress: () => void; recordingUrl: string }) {
-  const pulse = useRef(new Animated.Value(1)).current;
+function AudioPlayer({ recordingUrl }: { recordingUrl: string }) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
   const scale = useRef(new Animated.Value(1)).current;
+  const pulse = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
+    return () => {
+      sound?.unloadAsync();
+    };
+  }, [sound]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      pulseAnim.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1.1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
+        ])
+      );
+      pulseAnim.current.start();
+    } else {
+      pulseAnim.current?.stop();
+      pulse.setValue(1);
+    }
+  }, [isPlaying]);
+
+  const handlePlayPause = async () => {
+    if (isLoading) return;
+
+    if (sound) {
+      if (isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        await sound.playAsync();
+        setIsPlaying(true);
+      }
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: recordingUrl },
+        { shouldPlay: true },
+        (status) => {
+          if (status.isLoaded) {
+            setPosition(status.positionMillis);
+            setDuration(status.durationMillis || 0);
+            if (status.didJustFinish) {
+              setIsPlaying(false);
+              setPosition(0);
+            }
+          }
+        }
+      );
+      setSound(newSound);
+      setIsPlaying(true);
+    } catch (err) {
+      Alert.alert('Playback Error', 'Could not play this recording.');
+    }
+    setIsLoading(false);
+  };
+
+  const formatMs = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  const progress = duration > 0 ? position / duration : 0;
 
   return (
     <Pressable
       onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, friction: 8 }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
-      onPress={onPress}
+      onPress={handlePlayPause}
     >
       <Animated.View style={[st.recordingCard, { transform: [{ scale }] }]}>
         <ShimmerOverlay />
@@ -272,15 +338,25 @@ function PulsingPlayButton({ onPress, recordingUrl }: { onPress: () => void; rec
               end={{ x: 1, y: 1 }}
               style={st.recordingIcon}
             >
-              <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 2 }} />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color="#fff" style={!isPlaying ? { marginLeft: 2 } : undefined} />
+              )}
             </LinearGradient>
           </Animated.View>
           <View>
             <Text style={st.recordingTitle}>Call Recording</Text>
-            <Text style={st.recordingSub}>Tap to play audio</Text>
+            <Text style={st.recordingSub}>
+              {duration > 0 ? `${formatMs(position)} / ${formatMs(duration)}` : 'Tap to play'}
+            </Text>
           </View>
         </View>
-        <Ionicons name="open-outline" size={18} color={Colors.textMuted} />
+        {duration > 0 && (
+          <View style={st.progressBar}>
+            <View style={[st.progressFill, { width: `${progress * 100}%` }]} />
+          </View>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -545,10 +621,7 @@ export default function LeadDetailScreen() {
         {detail?.recording_url ? (
           <>
             <SectionLabel>Recording</SectionLabel>
-            <PulsingPlayButton
-              onPress={() => Linking.openURL(detail.recording_url!)}
-              recordingUrl={detail.recording_url}
-            />
+            <AudioPlayer recordingUrl={detail.recording_url} />
           </>
         ) : null}
 
@@ -754,6 +827,21 @@ const st = StyleSheet.create({
   },
   recordingTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
   recordingSub: { ...Fonts.body, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 1 },
+  progressBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: Colors.bgElevated,
+    borderBottomLeftRadius: BorderRadius.lg,
+    borderBottomRightRadius: BorderRadius.lg,
+  },
+  progressFill: {
+    height: 3,
+    backgroundColor: Colors.electric,
+    borderBottomLeftRadius: BorderRadius.lg,
+  },
 
   /* Notes */
   notesText: { ...Fonts.body, fontSize: TypeScale.body, color: Colors.textSecondary, lineHeight: TypeScale.body * 1.5, fontStyle: 'italic' },

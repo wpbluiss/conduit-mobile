@@ -21,6 +21,8 @@ import { Colors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 import { api, type AffiliateStats, type AffiliateReferral } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/authStore';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -203,14 +205,61 @@ function StepItem({ num, title, desc }: { num: number; title: string; desc: stri
 export default function AffiliatesScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { user, isGuestMode } = useAuthStore();
   const [data, setData] = useState<AffiliateStats>(MOCK_STATS);
   const [copied, setCopied] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
 
   useEffect(() => {
-    api.getAffiliateStats()
-      .then(setData)
-      .catch(() => { /* use mock fallback */ });
+    if (isGuestMode) return; // Keep mock data for guests
+
+    (async () => {
+      // Try Supabase first
+      try {
+        const userId = user?.id;
+        if (userId) {
+          const { data: refData, error } = await supabase
+            .from('referrals')
+            .select('*')
+            .eq('referrer_id', userId)
+            .order('created_at', { ascending: false });
+
+          if (!error && refData && refData.length > 0) {
+            const referrals: AffiliateReferral[] = refData.map((r: any) => ({
+              id: r.id,
+              name: r.referred_name || 'Unknown',
+              email: r.referred_email || '',
+              date: r.created_at,
+              plan: r.plan || 'solo',
+              status: r.status || 'trial',
+              commission: r.commission || 0,
+            }));
+
+            const activeRefs = referrals.filter((r) => r.status === 'active');
+            setData({
+              referral_code: user?.user_metadata?.referral_code || MOCK_STATS.referral_code,
+              total_referrals: referrals.length,
+              active_subscriptions: activeRefs.length,
+              total_earned: referrals.reduce((sum, r) => sum + r.commission, 0),
+              next_payout_amount: activeRefs.reduce((sum, r) => sum + r.commission, 0),
+              next_payout_date: MOCK_STATS.next_payout_date,
+              referrals,
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[Affiliates] Supabase query failed:', err);
+      }
+
+      // Fallback: try API
+      try {
+        const stats = await api.getAffiliateStats();
+        setData(stats);
+      } catch {
+        // Keep mock data
+      }
+    })();
   }, []);
 
   const code = data.referral_code;

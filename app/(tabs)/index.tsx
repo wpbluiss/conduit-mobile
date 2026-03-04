@@ -19,6 +19,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Badge } from '../../components/ui/Badge';
 import { ShimmerSkeleton } from '../../components/ui/ShimmerSkeleton';
+import { ErrorToast } from '../../components/ui/ErrorToast';
 import { StatusColors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -239,11 +240,17 @@ export default function DashboardScreen() {
     agentStatus,
     isLoading,
     isRefreshing,
+    error,
     fetchLeads,
     fetchDashboard,
     fetchAgentStatus,
     refresh,
   } = useLeadsStore();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (error) setErrorMsg(error);
+  }, [error]);
 
   const glowAnim = useRef(new Animated.Value(0)).current;
 
@@ -300,6 +307,11 @@ export default function DashboardScreen() {
         colors={[colors.bgPrimary, colors.bgPrimary, isDark ? 'rgba(14, 165, 233, 0.03)' : 'rgba(2, 132, 199, 0.03)']}
         locations={[0, 0.6, 1]}
         style={StyleSheet.absoluteFill}
+      />
+
+      <ErrorToast
+        message={errorMsg}
+        onDismiss={() => setErrorMsg(null)}
       />
 
       <ScrollView
