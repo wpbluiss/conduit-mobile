@@ -14,20 +14,22 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/authStore';
 import { useLeadsStore } from '../../store/leadsStore';
-import { Colors } from '../../constants/colors';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TextStyles, Fonts, TypeScale } from '../../constants/typography';
 import { ScreenPadding, Spacing, BorderRadius } from '../../constants/layout';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import type { UserProfile, Invoice } from '../../lib/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -39,7 +41,6 @@ const SUPPORT_PHONE = '15614464520';
 const TERMS_URL = 'https://www.conduitai.io/terms';
 const PRIVACY_URL = 'https://www.conduitai.io/privacy';
 const FAQ_URL = 'https://www.conduitai.io/faq';
-const BILLING_URL = 'https://www.conduitai.io/billing';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -63,6 +64,7 @@ const PLAN_PRICES: Record<string, string> = {
 // ── Shimmer Overlay ─────────────────────────────────────────
 
 function ShimmerOverlay() {
+  const { colors, isDark } = useTheme();
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(
@@ -73,6 +75,10 @@ function ShimmerOverlay() {
       ])
     ).start();
   }, []);
+
+  const shimmerColor = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
+  const shimmerPeak = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+
   return (
     <Animated.View
       style={[
@@ -81,7 +87,7 @@ function ShimmerOverlay() {
       ]}
     >
       <LinearGradient
-        colors={['transparent', 'rgba(255,255,255,0.03)', 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.03)', 'transparent']}
+        colors={['transparent', shimmerColor, shimmerPeak, shimmerColor, 'transparent']}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={StyleSheet.absoluteFill}
@@ -93,6 +99,7 @@ function ShimmerOverlay() {
 // ── Pulsing Footer ──────────────────────────────────────────
 
 function PulsingFooter() {
+  const { colors } = useTheme();
   const pulse = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     Animated.loop(
@@ -104,8 +111,8 @@ function PulsingFooter() {
   }, []);
   return (
     <View style={st.footerWrap}>
-      <Animated.Text style={[st.footerBrand, { opacity: pulse }]}>Conduit AI</Animated.Text>
-      <Text style={st.footerVersion}>v{APP_VERSION} ({BUILD_NUMBER})</Text>
+      <Animated.Text style={[st.footerBrand, { opacity: pulse, color: colors.electric }]}>Conduit AI</Animated.Text>
+      <Text style={[st.footerVersion, { color: colors.textDisabled }]}>v{APP_VERSION} ({BUILD_NUMBER})</Text>
     </View>
   );
 }
@@ -127,21 +134,24 @@ function SectionHeader({
   onPress: () => void;
   badge?: string;
 }) {
+  const { colors } = useTheme();
+  const color = iconColor || colors.electric;
+
   return (
     <Pressable onPress={onPress} style={st.sectionHeader}>
-      <View style={[st.sectionHeaderIcon, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
-        <Ionicons name={icon} size={16} color={iconColor || Colors.electric} />
+      <View style={[st.sectionHeaderIcon, { backgroundColor: `${color}15` }]}>
+        <Ionicons name={icon} size={16} color={color} />
       </View>
-      <Text style={st.sectionHeaderTitle}>{title}</Text>
+      <Text style={[st.sectionHeaderTitle, { color: colors.textPrimary }]}>{title}</Text>
       {badge ? (
-        <View style={[st.badge, { backgroundColor: `${iconColor || Colors.electric}20` }]}>
-          <Text style={[st.badgeText, { color: iconColor || Colors.electric }]}>{badge}</Text>
+        <View style={[st.badge, { backgroundColor: `${color}20` }]}>
+          <Text style={[st.badgeText, { color }]}>{badge}</Text>
         </View>
       ) : null}
       <Ionicons
         name={expanded ? 'chevron-up' : 'chevron-down'}
         size={16}
-        color={Colors.textMuted}
+        color={colors.textMuted}
       />
     </Pressable>
   );
@@ -170,6 +180,7 @@ function Row({
   isLast?: boolean;
   danger?: boolean;
 }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -180,25 +191,25 @@ function Row({
   };
 
   const content = (
-    <Animated.View style={[st.row, !isLast && st.rowBorder, { transform: [{ scale }] }]}>
+    <Animated.View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }, { transform: [{ scale }] }]}>
       {danger ? (
-        <View style={[st.rowIconWrap, { backgroundColor: Colors.dangerGlow }]}>
-          <Ionicons name={icon} size={18} color={Colors.danger} />
+        <View style={[st.rowIconWrap, { backgroundColor: colors.dangerGlow }]}>
+          <Ionicons name={icon} size={18} color={colors.danger} />
         </View>
       ) : iconGradient ? (
         <LinearGradient colors={iconGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.rowIconWrap}>
           <Ionicons name={icon} size={18} color="#fff" />
         </LinearGradient>
       ) : (
-        <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
-          <Ionicons name={icon} size={18} color={iconColor || Colors.electric} />
+        <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || colors.electric}15` }]}>
+          <Ionicons name={icon} size={18} color={iconColor || colors.electric} />
         </View>
       )}
       <View style={st.rowBody}>
-        <Text style={[st.rowLabel, danger && { color: Colors.danger }]}>{label}</Text>
-        {value ? <Text style={st.rowValue} numberOfLines={1}>{value}</Text> : null}
+        <Text style={[st.rowLabel, { color: danger ? colors.danger : colors.textPrimary }]}>{label}</Text>
+        {value ? <Text style={[st.rowValue, { color: colors.textSecondary }]} numberOfLines={1}>{value}</Text> : null}
       </View>
-      {rightElement || (onPress ? <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} /> : null)}
+      {rightElement || (onPress ? <Ionicons name="chevron-forward" size={16} color={colors.textMuted} /> : null)}
     </Animated.View>
   );
 
@@ -231,6 +242,7 @@ function EditableRow({
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   isLast?: boolean;
 }) {
+  const { colors } = useTheme();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -245,12 +257,12 @@ function EditableRow({
   };
 
   return (
-    <View style={[st.row, !isLast && st.rowBorder]}>
-      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
-        <Ionicons name={icon} size={18} color={iconColor || Colors.electric} />
+    <View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || colors.electric}15` }]}>
+        <Ionicons name={icon} size={18} color={iconColor || colors.electric} />
       </View>
       <View style={st.rowBody}>
-        <Text style={st.rowLabel}>{label}</Text>
+        <Text style={[st.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
         {editing ? (
           <TextInput
             value={draft}
@@ -258,14 +270,14 @@ function EditableRow({
             onBlur={save}
             onSubmitEditing={save}
             autoFocus
-            style={st.editInput}
+            style={[st.editInput, { color: colors.textPrimary, borderBottomColor: colors.electric }]}
             keyboardType={keyboardType}
-            placeholderTextColor={Colors.textDisabled}
+            placeholderTextColor={colors.textDisabled}
             returnKeyType="done"
-            selectionColor={Colors.electric}
+            selectionColor={colors.electric}
           />
         ) : (
-          <Text style={st.rowValue} numberOfLines={1}>{value || 'Not set'}</Text>
+          <Text style={[st.rowValue, { color: colors.textSecondary }]} numberOfLines={1}>{value || 'Not set'}</Text>
         )}
       </View>
       <Pressable
@@ -279,7 +291,7 @@ function EditableRow({
         <Ionicons
           name={editing ? 'checkmark-circle' : 'create-outline'}
           size={18}
-          color={editing ? Colors.success : Colors.textMuted}
+          color={editing ? colors.success : colors.textMuted}
         />
       </Pressable>
     </View>
@@ -305,19 +317,20 @@ function ToggleRow({
   onToggle: (v: boolean) => void;
   isLast?: boolean;
 }) {
+  const { colors } = useTheme();
   return (
-    <View style={[st.row, !isLast && st.rowBorder]}>
-      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
-        <Ionicons name={icon} size={18} color={iconColor || Colors.electric} />
+    <View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || colors.electric}15` }]}>
+        <Ionicons name={icon} size={18} color={iconColor || colors.electric} />
       </View>
       <View style={st.rowBody}>
-        <Text style={st.rowLabel}>{label}</Text>
-        {description ? <Text style={st.rowValue}>{description}</Text> : null}
+        <Text style={[st.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+        {description ? <Text style={[st.rowValue, { color: colors.textSecondary }]}>{description}</Text> : null}
       </View>
       <Switch
         value={value}
         onValueChange={(v) => { Haptics.selectionAsync(); onToggle(v); }}
-        trackColor={{ false: Colors.bgElevated, true: Colors.electric }}
+        trackColor={{ false: colors.bgElevated, true: colors.electric }}
         thumbColor="#fff"
       />
     </View>
@@ -343,16 +356,17 @@ function IntegrationRow({
   onToggle: () => void;
   isLast?: boolean;
 }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   return (
-    <View style={[st.row, !isLast && st.rowBorder]}>
+    <View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
       <View style={[st.rowIconWrap, { backgroundColor: `${iconColor}15` }]}>
         <Ionicons name={icon} size={18} color={iconColor} />
       </View>
       <View style={st.rowBody}>
-        <Text style={st.rowLabel}>{name}</Text>
-        <Text style={st.rowValue}>{description}</Text>
+        <Text style={[st.rowLabel, { color: colors.textPrimary }]}>{name}</Text>
+        <Text style={[st.rowValue, { color: colors.textSecondary }]}>{description}</Text>
       </View>
       <Pressable
         onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, friction: 8 }).start()}
@@ -362,11 +376,12 @@ function IntegrationRow({
         <Animated.View
           style={[
             st.connectBtn,
-            connected && st.connectBtnActive,
+            { borderColor: connected ? colors.success : colors.borderLight },
+            connected && { backgroundColor: colors.successGlow },
             { transform: [{ scale }] },
           ]}
         >
-          <Text style={[st.connectBtnText, connected && st.connectBtnTextActive]}>
+          <Text style={[st.connectBtnText, { color: connected ? colors.success : colors.textSecondary }]}>
             {connected ? 'Connected' : 'Connect'}
           </Text>
         </Animated.View>
@@ -378,18 +393,19 @@ function IntegrationRow({
 // ── Invoice Row ─────────────────────────────────────────────
 
 function InvoiceRow({ invoice, isLast }: { invoice: Invoice; isLast?: boolean }) {
-  const statusColor = invoice.status === 'paid' ? Colors.success : invoice.status === 'pending' ? Colors.warning : Colors.danger;
+  const { colors } = useTheme();
+  const statusColor = invoice.status === 'paid' ? colors.success : invoice.status === 'pending' ? colors.warning : colors.danger;
   return (
-    <View style={[st.row, !isLast && st.rowBorder]}>
+    <View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
       <View style={[st.rowIconWrap, { backgroundColor: `${statusColor}15` }]}>
         <Ionicons name="receipt-outline" size={18} color={statusColor} />
       </View>
       <View style={st.rowBody}>
-        <Text style={st.rowLabel}>{invoice.description}</Text>
-        <Text style={st.rowValue}>{new Date(invoice.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+        <Text style={[st.rowLabel, { color: colors.textPrimary }]}>{invoice.description}</Text>
+        <Text style={[st.rowValue, { color: colors.textSecondary }]}>{new Date(invoice.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[st.invoiceAmount]}>${invoice.amount.toFixed(2)}</Text>
+        <Text style={[st.invoiceAmount, { color: colors.textPrimary }]}>${invoice.amount.toFixed(2)}</Text>
         <Text style={[st.invoiceStatus, { color: statusColor }]}>
           {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
         </Text>
@@ -401,6 +417,7 @@ function InvoiceRow({ invoice, isLast }: { invoice: Invoice; isLast?: boolean })
 // ── Sign Out Button ─────────────────────────────────────────
 
 function SignOutButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -425,8 +442,10 @@ function SignOutButton({ onPress }: { onPress: () => void }) {
         style={[
           st.signOutCard,
           {
+            backgroundColor: colors.bgCard,
+            borderColor: 'rgba(239, 68, 68, 0.2)',
             transform: [{ scale }],
-            shadowColor: Colors.danger,
+            shadowColor: colors.danger,
             shadowOpacity,
             shadowRadius: 16,
             shadowOffset: { width: 0, height: 0 },
@@ -434,11 +453,11 @@ function SignOutButton({ onPress }: { onPress: () => void }) {
         ]}
       >
         <ShimmerOverlay />
-        <View style={[st.rowIconWrap, { backgroundColor: Colors.dangerGlow }]}>
-          <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
+        <View style={[st.rowIconWrap, { backgroundColor: colors.dangerGlow }]}>
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
         </View>
-        <Text style={st.signOutText}>Sign Out</Text>
-        <Ionicons name="chevron-forward" size={16} color={Colors.danger} style={{ opacity: 0.6 }} />
+        <Text style={[st.signOutText, { color: colors.danger }]}>Sign Out</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.danger} style={{ opacity: 0.6 }} />
       </Animated.View>
     </Pressable>
   );
@@ -447,6 +466,7 @@ function SignOutButton({ onPress }: { onPress: () => void }) {
 // ── Create Account Button (Guest Mode) ─────────────────────
 
 function CreateAccountButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -471,21 +491,22 @@ function CreateAccountButton({ onPress }: { onPress: () => void }) {
         style={[
           st.signOutCard,
           {
+            backgroundColor: colors.bgCard,
+            borderColor: 'rgba(14, 165, 233, 0.2)',
             transform: [{ scale }],
-            shadowColor: Colors.electric,
+            shadowColor: colors.electric,
             shadowOpacity,
             shadowRadius: 16,
             shadowOffset: { width: 0, height: 0 },
-            borderColor: 'rgba(14, 165, 233, 0.2)',
           },
         ]}
       >
         <ShimmerOverlay />
-        <View style={[st.rowIconWrap, { backgroundColor: Colors.electricMuted }]}>
-          <Ionicons name="person-add-outline" size={18} color={Colors.electric} />
+        <View style={[st.rowIconWrap, { backgroundColor: colors.electricMuted }]}>
+          <Ionicons name="person-add-outline" size={18} color={colors.electric} />
         </View>
-        <Text style={[st.signOutText, { color: Colors.electric }]}>Create Account</Text>
-        <Ionicons name="chevron-forward" size={16} color={Colors.electric} style={{ opacity: 0.6 }} />
+        <Text style={[st.signOutText, { color: colors.electric }]}>Create Account</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.electric} style={{ opacity: 0.6 }} />
       </Animated.View>
     </Pressable>
   );
@@ -493,7 +514,20 @@ function CreateAccountButton({ onPress }: { onPress: () => void }) {
 
 // ── Profile Card ────────────────────────────────────────────
 
-function ProfileCard({ name, email, plan }: { name: string; email: string; plan: string }) {
+function ProfileCard({
+  name,
+  email,
+  plan,
+  avatarUrl,
+  onAvatarPress,
+}: {
+  name: string;
+  email: string;
+  plan: string;
+  avatarUrl?: string | null;
+  onAvatarPress?: () => void;
+}) {
+  const { colors } = useTheme();
   const initials = name
     .split(' ')
     .map((w) => w[0])
@@ -517,18 +551,29 @@ function ProfileCard({ name, email, plan }: { name: string; email: string; plan:
   });
 
   return (
-    <Animated.View style={[st.profileCard, { borderColor }]}>
+    <Animated.View style={[st.profileCard, { backgroundColor: colors.bgCard, borderColor }]}>
       <ShimmerOverlay />
-      <LinearGradient colors={Colors.gradientElectric} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.avatar}>
-        <Text style={st.avatarText}>{initials}</Text>
-      </LinearGradient>
+      <Pressable onPress={onAvatarPress} style={{ position: 'relative' }}>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={st.avatar} />
+        ) : (
+          <LinearGradient colors={colors.gradientElectric} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.avatar}>
+            <Text style={st.avatarText}>{initials}</Text>
+          </LinearGradient>
+        )}
+        {onAvatarPress && (
+          <View style={[st.avatarEditBadge, { backgroundColor: colors.electric }]}>
+            <Ionicons name="camera" size={10} color="#fff" />
+          </View>
+        )}
+      </Pressable>
       <View style={st.profileInfo}>
-        <Text style={st.profileName}>{name || 'Your Name'}</Text>
-        <Text style={st.profileEmail}>{email || 'email@example.com'}</Text>
+        <Text style={[st.profileName, { color: colors.textPrimary }]}>{name || 'Your Name'}</Text>
+        <Text style={[st.profileEmail, { color: colors.textSecondary }]}>{email || 'email@example.com'}</Text>
       </View>
-      <View style={st.planBadge}>
-        <Ionicons name="diamond" size={12} color={Colors.cyan} />
-        <Text style={st.planBadgeText}>{PLAN_LABELS[plan] || plan || 'Solo'}</Text>
+      <View style={[st.planBadge, { backgroundColor: colors.cyanGlow }]}>
+        <Ionicons name="diamond" size={12} color={colors.cyan} />
+        <Text style={[st.planBadgeText, { color: colors.cyan }]}>{PLAN_LABELS[plan] || plan || 'Solo'}</Text>
       </View>
     </Animated.View>
   );
@@ -537,15 +582,15 @@ function ProfileCard({ name, email, plan }: { name: string; email: string; plan:
 // ── Mock Data ───────────────────────────────────────────────
 
 const MOCK_INVOICES: Invoice[] = [
-  { id: '1', date: '2026-02-01', amount: 49.00, status: 'paid', description: 'Solo Operator - February' },
-  { id: '2', date: '2026-01-01', amount: 49.00, status: 'paid', description: 'Solo Operator - January' },
-  { id: '3', date: '2025-12-01', amount: 49.00, status: 'paid', description: 'Solo Operator - December' },
+  { id: '1', date: '2026-02-01', amount: 39.00, status: 'paid', description: 'Solo Operator - February' },
+  { id: '2', date: '2026-01-01', amount: 39.00, status: 'paid', description: 'Solo Operator - January' },
+  { id: '3', date: '2025-12-01', amount: 39.00, status: 'paid', description: 'Solo Operator - December' },
 ];
 
 // ── Main Screen ─────────────────────────────────────────────
 
 export default function SettingsScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark, toggleTheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signOut, user, isGuestMode, setGuestMode } = useAuthStore();
@@ -560,6 +605,9 @@ export default function SettingsScreen() {
   const userPlan = meta?.plan || 'solo';
 
   const agentActive = agentStatus?.is_active ?? true;
+
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(meta?.avatar_url || null);
 
   // Collapsible sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['account']));
@@ -654,7 +702,14 @@ export default function SettingsScreen() {
     }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)/welcome' as any);
+        },
+      },
     ]);
   };
 
@@ -695,7 +750,7 @@ export default function SettingsScreen() {
           onPress: () => {
             Alert.alert(
               'Are you absolutely sure?',
-              'Type DELETE to confirm. This cannot be undone.',
+              'This cannot be undone.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -705,7 +760,8 @@ export default function SettingsScreen() {
                     try {
                       await api.deleteAccount();
                     } catch {}
-                    signOut();
+                    await signOut();
+                    router.replace('/(auth)/welcome' as any);
                   },
                 },
               ]
@@ -718,6 +774,57 @@ export default function SettingsScreen() {
 
   const handleSaveProfile = (field: string, value: string) => {
     api.updateUserProfile({ [field]: value }).catch(() => {});
+  };
+
+  const handlePickAvatar = async () => {
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Create an account to upload a profile photo.');
+      return;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow access to your photo library to set a profile photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets?.[0]) return;
+
+    const asset = result.assets[0];
+    const ext = asset.uri.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${user?.id || 'anon'}-${Date.now()}.${ext}`;
+
+    try {
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const arrayBuffer = await new Response(blob).arrayBuffer();
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, arrayBuffer, {
+          contentType: `image/${ext === 'png' ? 'png' : 'jpeg'}`,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+
+      setAvatarUrl(publicUrl);
+      await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      console.warn('[Settings] Avatar upload failed:', err.message);
+      Alert.alert('Upload Failed', 'Could not upload your photo. Please try again.');
+    }
   };
 
   const toggleIntegration = (key: keyof typeof integrations) => {
@@ -743,7 +850,7 @@ export default function SettingsScreen() {
   return (
     <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
-        colors={[colors.bgPrimary, colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+        colors={[colors.bgPrimary, colors.bgPrimary, `${colors.electric}08`]}
         locations={[0, 0.7, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -754,8 +861,8 @@ export default function SettingsScreen() {
       >
         {/* Header */}
         <View style={st.header}>
-          <Text style={st.title}>Settings</Text>
-          <Text style={st.subtitle}>{businessName || 'Your Business'}</Text>
+          <Text style={[st.title, { color: colors.textPrimary }]}>Settings</Text>
+          <Text style={[st.subtitle, { color: colors.textMuted }]}>{businessName || 'Your Business'}</Text>
         </View>
 
         {/* Profile Card */}
@@ -763,15 +870,17 @@ export default function SettingsScreen() {
           name={isGuestMode ? 'Guest User' : ownerName}
           email={isGuestMode ? 'Browsing as guest' : email}
           plan={isGuestMode ? 'demo' : userPlan}
+          avatarUrl={isGuestMode ? null : avatarUrl}
+          onAvatarPress={handlePickAvatar}
         />
 
         {/* 1. Account */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="person-outline"
-              iconColor={Colors.electric}
+              iconColor={colors.electric}
               title="Account"
               expanded={isExpanded('account')}
               onPress={() => toggleSection('account')}
@@ -780,14 +889,14 @@ export default function SettingsScreen() {
               <View>
                 <EditableRow
                   icon="person-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="Full Name"
                   value={editName}
                   onSave={(v) => { setEditName(v); handleSaveProfile('owner_name', v); }}
                 />
                 <EditableRow
                   icon="mail-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="Email"
                   value={editEmail}
                   onSave={(v) => { setEditEmail(v); handleSaveProfile('email', v); }}
@@ -795,14 +904,14 @@ export default function SettingsScreen() {
                 />
                 <EditableRow
                   icon="business-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="Business Name"
                   value={editBusiness}
                   onSave={(v) => { setEditBusiness(v); handleSaveProfile('business_name', v); }}
                 />
                 <EditableRow
                   icon="call-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="Phone"
                   value={editPhone}
                   onSave={(v) => { setEditPhone(v); handleSaveProfile('phone', v); }}
@@ -816,11 +925,11 @@ export default function SettingsScreen() {
 
         {/* 2. Subscription & Billing */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="diamond-outline"
-              iconColor={Colors.cyan}
+              iconColor={colors.cyan}
               title="Subscription & Billing"
               expanded={isExpanded('billing')}
               onPress={() => toggleSection('billing')}
@@ -830,32 +939,32 @@ export default function SettingsScreen() {
               <View>
                 <Row
                   icon="diamond-outline"
-                  iconColor={Colors.cyan}
+                  iconColor={colors.cyan}
                   label="Current Plan"
                   value={`${PLAN_LABELS[userPlan] || 'Solo Operator'} - ${PLAN_PRICES[userPlan] || '$39'}/mo`}
                 />
                 <Row
                   icon="calendar-outline"
-                  iconColor={Colors.cyan}
+                  iconColor={colors.cyan}
                   label="Billing Cycle"
                   value="Monthly"
                 />
                 <Row
                   icon="card-outline"
-                  iconColor={Colors.cyan}
+                  iconColor={colors.cyan}
                   label="Manage Billing"
-                  onPress={() => Linking.openURL(BILLING_URL)}
+                  onPress={() => Alert.alert('Coming Soon', 'Billing management will be available in a future update.')}
                 />
                 <Row
                   icon="arrow-up-circle-outline"
-                  iconColor={Colors.success}
+                  iconColor={colors.success}
                   label="Upgrade Plan"
-                  onPress={() => Linking.openURL(BILLING_URL + '?upgrade=true')}
+                  onPress={() => Alert.alert('Coming Soon', 'Plan upgrades will be available in a future update.')}
                 />
 
                 {/* Recent Invoices */}
-                <View style={st.invoiceHeader}>
-                  <Text style={st.invoiceHeaderText}>Recent Invoices</Text>
+                <View style={[st.invoiceHeader, { borderTopColor: colors.border }]}>
+                  <Text style={[st.invoiceHeaderText, { color: colors.textMuted }]}>Recent Invoices</Text>
                 </View>
                 {invoices.map((inv, i) => (
                   <InvoiceRow key={inv.id} invoice={inv} isLast={i === invoices.length - 1} />
@@ -867,11 +976,11 @@ export default function SettingsScreen() {
 
         {/* 3. Notifications */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="notifications-outline"
-              iconColor={Colors.warning}
+              iconColor={colors.warning}
               title="Notifications"
               expanded={isExpanded('notifications')}
               onPress={() => toggleSection('notifications')}
@@ -880,7 +989,7 @@ export default function SettingsScreen() {
               <View>
                 <ToggleRow
                   icon="notifications-outline"
-                  iconColor={Colors.warning}
+                  iconColor={colors.warning}
                   label="Push Notifications"
                   description="Enable all push notifications"
                   value={pushEnabled}
@@ -888,7 +997,7 @@ export default function SettingsScreen() {
                 />
                 <ToggleRow
                   icon="flash-outline"
-                  iconColor={Colors.success}
+                  iconColor={colors.success}
                   label="New Lead Alerts"
                   description="Instant notification when a lead is captured"
                   value={newLeadAlert}
@@ -896,7 +1005,7 @@ export default function SettingsScreen() {
                 />
                 <ToggleRow
                   icon="sunny-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="Daily Summary"
                   description="Receive a daily digest at 9am"
                   value={dailySummary}
@@ -904,7 +1013,7 @@ export default function SettingsScreen() {
                 />
                 <ToggleRow
                   icon="bar-chart-outline"
-                  iconColor={Colors.cyan}
+                  iconColor={colors.cyan}
                   label="Weekly Report"
                   description="Performance report every Monday"
                   value={weeklyReport}
@@ -912,7 +1021,7 @@ export default function SettingsScreen() {
                 />
                 <ToggleRow
                   icon="alert-circle-outline"
-                  iconColor={Colors.danger}
+                  iconColor={colors.danger}
                   label="Agent Offline Alert"
                   description="Get notified if your agent goes offline"
                   value={offlineAlert}
@@ -926,11 +1035,11 @@ export default function SettingsScreen() {
 
         {/* 4. AI Agent Quick Status */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="hardware-chip-outline"
-              iconColor={agentActive ? Colors.success : Colors.textMuted}
+              iconColor={agentActive ? colors.success : colors.textMuted}
               title="AI Agent"
               expanded={isExpanded('agent')}
               onPress={() => toggleSection('agent')}
@@ -940,13 +1049,13 @@ export default function SettingsScreen() {
               <View>
                 <Row
                   icon="flash-outline"
-                  iconColor={agentActive ? Colors.success : Colors.textMuted}
+                  iconColor={agentActive ? colors.success : colors.textMuted}
                   label="Agent Active"
                   rightElement={
                     <Switch
                       value={agentActive}
                       onValueChange={handleAgentToggle}
-                      trackColor={{ false: Colors.bgElevated, true: Colors.success }}
+                      trackColor={{ false: colors.bgElevated, true: colors.success }}
                       thumbColor="#fff"
                     />
                   }
@@ -955,29 +1064,29 @@ export default function SettingsScreen() {
                 {/* Greeting Preview */}
                 <View style={st.greetingRow}>
                   <View style={st.greetingLabelRow}>
-                    <View style={[st.greetingDot, { backgroundColor: agentActive ? Colors.success : Colors.textMuted }]} />
-                    <Text style={st.greetingLabel}>Greeting Preview</Text>
+                    <View style={[st.greetingDot, { backgroundColor: agentActive ? colors.success : colors.textMuted }]} />
+                    <Text style={[st.greetingLabel, { color: colors.textMuted }]}>Greeting Preview</Text>
                   </View>
-                  <View style={st.greetingBubble}>
-                    <Text style={st.greetingText}>"{greetingMessage}"</Text>
+                  <View style={[st.greetingBubble, { backgroundColor: colors.bgInput, borderColor: colors.borderElectric }]}>
+                    <Text style={[st.greetingText, { color: colors.textSecondary }]}>"{greetingMessage}"</Text>
                   </View>
                 </View>
 
                 {/* Agent Stats */}
                 <View style={st.agentStatsRow}>
                   <View style={st.agentStat}>
-                    <Text style={st.agentStatValue}>{agentStatus?.phone_number || '--'}</Text>
-                    <Text style={st.agentStatLabel}>Phone Number</Text>
+                    <Text style={[st.agentStatValue, { color: colors.textPrimary }]}>{agentStatus?.phone_number || '--'}</Text>
+                    <Text style={[st.agentStatLabel, { color: colors.textMuted }]}>Phone Number</Text>
                   </View>
-                  <View style={st.agentStatDivider} />
+                  <View style={[st.agentStatDivider, { backgroundColor: colors.border }]} />
                   <View style={st.agentStat}>
-                    <Text style={st.agentStatValue}>{agentStatus?.total_calls_handled ?? 0}</Text>
-                    <Text style={st.agentStatLabel}>Calls Handled</Text>
+                    <Text style={[st.agentStatValue, { color: colors.textPrimary }]}>{agentStatus?.total_calls_handled ?? 0}</Text>
+                    <Text style={[st.agentStatLabel, { color: colors.textMuted }]}>Calls Handled</Text>
                   </View>
-                  <View style={st.agentStatDivider} />
+                  <View style={[st.agentStatDivider, { backgroundColor: colors.border }]} />
                   <View style={st.agentStat}>
-                    <Text style={st.agentStatValue}>{lastCallAt}</Text>
-                    <Text style={st.agentStatLabel}>Last Call</Text>
+                    <Text style={[st.agentStatValue, { color: colors.textPrimary }]}>{lastCallAt}</Text>
+                    <Text style={[st.agentStatLabel, { color: colors.textMuted }]}>Last Call</Text>
                   </View>
                 </View>
 
@@ -985,13 +1094,13 @@ export default function SettingsScreen() {
                 <Pressable
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push('/locations');
+                    router.push('/locations' as any);
                   }}
-                  style={st.locationsLink}
+                  style={[st.locationsLink, { borderTopColor: colors.border }]}
                 >
-                  <Ionicons name="location-outline" size={16} color={Colors.electric} />
-                  <Text style={st.locationsLinkText}>Manage Locations & Agents</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.electric} />
+                  <Ionicons name="location-outline" size={16} color={colors.electric} />
+                  <Text style={[st.locationsLinkText, { color: colors.electric }]}>Manage Locations & Agents</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.electric} />
                 </Pressable>
               </View>
             )}
@@ -1000,7 +1109,7 @@ export default function SettingsScreen() {
 
         {/* 5. Integrations */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="git-network-outline"
@@ -1051,11 +1160,11 @@ export default function SettingsScreen() {
 
         {/* 6. App Preferences */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="options-outline"
-              iconColor={Colors.electric}
+              iconColor={colors.electric}
               title="App Preferences"
               expanded={isExpanded('preferences')}
               onPress={() => toggleSection('preferences')}
@@ -1063,8 +1172,16 @@ export default function SettingsScreen() {
             {isExpanded('preferences') && (
               <View>
                 <ToggleRow
+                  icon={isDark ? 'moon-outline' : 'sunny-outline'}
+                  iconColor={isDark ? '#A78BFA' : '#F59E0B'}
+                  label="Dark Mode"
+                  description={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+                  value={isDark}
+                  onToggle={() => { toggleTheme(); }}
+                />
+                <ToggleRow
                   icon="pulse-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="Haptic Feedback"
                   description="Vibration on button taps and navigation"
                   value={hapticsEnabled}
@@ -1072,7 +1189,7 @@ export default function SettingsScreen() {
                 />
                 <ToggleRow
                   icon="finger-print-outline"
-                  iconColor={Colors.cyan}
+                  iconColor={colors.cyan}
                   label="Biometric Lock"
                   description="Require Face ID / fingerprint to open"
                   value={biometricLock}
@@ -1080,7 +1197,7 @@ export default function SettingsScreen() {
                 />
                 <ToggleRow
                   icon="refresh-outline"
-                  iconColor={Colors.success}
+                  iconColor={colors.success}
                   label="Auto-Refresh"
                   description="Refresh dashboard data automatically"
                   value={autoRefresh}
@@ -1094,11 +1211,11 @@ export default function SettingsScreen() {
 
         {/* 7. Support & Legal */}
         <View style={st.sectionWrap}>
-          <View style={st.card}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="help-circle-outline"
-              iconColor={Colors.warning}
+              iconColor={colors.warning}
               title="Support & Legal"
               expanded={isExpanded('support')}
               onPress={() => toggleSection('support')}
@@ -1107,39 +1224,39 @@ export default function SettingsScreen() {
               <View>
                 <Row
                   icon="mail-outline"
-                  iconColor={Colors.warning}
+                  iconColor={colors.warning}
                   label="Email Support"
                   value={SUPPORT_EMAIL}
                   onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
                 />
                 <Row
                   icon="call-outline"
-                  iconColor={Colors.warning}
+                  iconColor={colors.warning}
                   label="Call Support"
                   value="561-446-4520"
                   onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
                 />
                 <Row
                   icon="help-buoy-outline"
-                  iconColor={Colors.electric}
+                  iconColor={colors.electric}
                   label="FAQ & Help Center"
                   onPress={() => Linking.openURL(FAQ_URL)}
                 />
                 <Row
                   icon="document-text-outline"
-                  iconColor={Colors.textSecondary}
+                  iconColor={colors.textSecondary}
                   label="Terms of Service"
                   onPress={() => Linking.openURL(TERMS_URL)}
                 />
                 <Row
                   icon="shield-checkmark-outline"
-                  iconColor={Colors.textSecondary}
+                  iconColor={colors.textSecondary}
                   label="Privacy Policy"
                   onPress={() => Linking.openURL(PRIVACY_URL)}
                 />
                 <Row
                   icon="information-circle-outline"
-                  iconColor={Colors.textSecondary}
+                  iconColor={colors.textSecondary}
                   label="App Version"
                   value={`${APP_VERSION} (${BUILD_NUMBER})`}
                   isLast
@@ -1151,11 +1268,11 @@ export default function SettingsScreen() {
 
         {/* 8. Danger Zone */}
         <View style={st.sectionWrap}>
-          <View style={[st.card, st.dangerCard]}>
+          <View style={[st.card, { backgroundColor: colors.bgCard, borderColor: 'rgba(239, 68, 68, 0.15)' }]}>
             <ShimmerOverlay />
             <SectionHeader
               icon="warning-outline"
-              iconColor={Colors.danger}
+              iconColor={colors.danger}
               title="Danger Zone"
               expanded={isExpanded('danger')}
               onPress={() => toggleSection('danger')}
@@ -1164,15 +1281,15 @@ export default function SettingsScreen() {
               <View>
                 <Row
                   icon="download-outline"
-                  iconColor={Colors.warning}
+                  iconColor={colors.warning}
                   label="Export All Data"
                   value="Download your leads, recordings, and settings"
                   onPress={handleExportData}
                   rightElement={
                     exporting ? (
-                      <ActivityIndicator size="small" color={Colors.warning} />
+                      <ActivityIndicator size="small" color={colors.warning} />
                     ) : (
-                      <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+                      <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                     )
                   }
                 />
@@ -1206,7 +1323,7 @@ export default function SettingsScreen() {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bgPrimary },
+  root: { flex: 1 },
   container: { flex: 1 },
   scroll: { paddingHorizontal: ScreenPadding.horizontal },
 
@@ -1217,17 +1334,15 @@ const st = StyleSheet.create({
     paddingTop: Spacing.base,
     paddingBottom: Spacing.sm,
   },
-  title: { ...TextStyles.h1, color: Colors.textPrimary },
-  subtitle: { ...Fonts.mono, fontSize: TypeScale.bodySm, color: Colors.textMuted },
+  title: { ...TextStyles.h1 },
+  subtitle: { ...Fonts.mono, fontSize: TypeScale.bodySm },
 
   /* Profile Card */
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
     padding: Spacing.base,
     marginBottom: Spacing.xs,
     overflow: 'hidden',
@@ -1245,23 +1360,32 @@ const st = StyleSheet.create({
     fontSize: TypeScale.h4,
     color: '#fff',
   },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   profileInfo: { flex: 1 },
   profileName: {
     ...Fonts.bodySemibold,
     fontSize: TypeScale.h4,
-    color: Colors.textPrimary,
   },
   profileEmail: {
     ...Fonts.body,
     fontSize: TypeScale.bodySm,
-    color: Colors.textSecondary,
     marginTop: 1,
   },
   planBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.cyanGlow,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
@@ -1269,7 +1393,6 @@ const st = StyleSheet.create({
   planBadgeText: {
     ...Fonts.bodyMedium,
     fontSize: TypeScale.tiny,
-    color: Colors.cyan,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -1295,7 +1418,6 @@ const st = StyleSheet.create({
   sectionHeaderTitle: {
     ...Fonts.bodySemibold,
     fontSize: TypeScale.body,
-    color: Colors.textPrimary,
     flex: 1,
   },
   badge: {
@@ -1312,14 +1434,9 @@ const st = StyleSheet.create({
 
   /* Cards */
   card: {
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
     overflow: 'hidden',
-  },
-  dangerCard: {
-    borderColor: 'rgba(239, 68, 68, 0.15)',
   },
 
   /* Shimmer */
@@ -1333,10 +1450,6 @@ const st = StyleSheet.create({
     paddingVertical: Spacing.md,
     gap: Spacing.md,
   },
-  rowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
   rowIconWrap: {
     width: 32,
     height: 32,
@@ -1349,12 +1462,10 @@ const st = StyleSheet.create({
   rowLabel: {
     ...Fonts.bodySemibold,
     fontSize: TypeScale.body,
-    color: Colors.textPrimary,
   },
   rowValue: {
     ...Fonts.body,
     fontSize: TypeScale.bodySm,
-    color: Colors.textSecondary,
     marginTop: 1,
   },
 
@@ -1362,9 +1473,7 @@ const st = StyleSheet.create({
   editInput: {
     ...Fonts.body,
     fontSize: TypeScale.bodySm,
-    color: Colors.textPrimary,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.electric,
     paddingVertical: 2,
     marginTop: 2,
   },
@@ -1385,19 +1494,15 @@ const st = StyleSheet.create({
   greetingLabel: {
     ...Fonts.bodyMedium,
     fontSize: TypeScale.caption,
-    color: Colors.textMuted,
   },
   greetingBubble: {
-    backgroundColor: Colors.bgInput,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderElectric,
   },
   greetingText: {
     ...Fonts.body,
     fontSize: TypeScale.bodySm,
-    color: Colors.textSecondary,
     fontStyle: 'italic',
     lineHeight: TypeScale.bodySm * 1.5,
   },
@@ -1416,18 +1521,15 @@ const st = StyleSheet.create({
   agentStatValue: {
     ...Fonts.monoBold,
     fontSize: TypeScale.caption,
-    color: Colors.textPrimary,
   },
   agentStatLabel: {
     ...Fonts.body,
     fontSize: TypeScale.tiny,
-    color: Colors.textMuted,
     marginTop: 2,
   },
   agentStatDivider: {
     width: 1,
     height: 24,
-    backgroundColor: Colors.border,
   },
   locationsLink: {
     flexDirection: 'row',
@@ -1436,12 +1538,10 @@ const st = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   locationsLinkText: {
     ...Fonts.bodyMedium,
     fontSize: TypeScale.body,
-    color: Colors.electric,
     flex: 1,
   },
 
@@ -1451,20 +1551,11 @@ const st = StyleSheet.create({
     paddingVertical: Spacing.xs + 2,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
     backgroundColor: 'transparent',
-  },
-  connectBtnActive: {
-    borderColor: Colors.success,
-    backgroundColor: Colors.successGlow,
   },
   connectBtnText: {
     ...Fonts.bodyMedium,
     fontSize: TypeScale.caption,
-    color: Colors.textSecondary,
-  },
-  connectBtnTextActive: {
-    color: Colors.success,
   },
 
   /* Invoice */
@@ -1473,19 +1564,16 @@ const st = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
   },
   invoiceHeaderText: {
     ...Fonts.bodyMedium,
     fontSize: TypeScale.caption,
-    color: Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   invoiceAmount: {
     ...Fonts.monoBold,
     fontSize: TypeScale.bodySm,
-    color: Colors.textPrimary,
   },
   invoiceStatus: {
     ...Fonts.bodyMedium,
@@ -1497,10 +1585,8 @@ const st = StyleSheet.create({
   signOutCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     gap: Spacing.md,
@@ -1509,7 +1595,6 @@ const st = StyleSheet.create({
   signOutText: {
     ...Fonts.bodySemibold,
     fontSize: TypeScale.body,
-    color: Colors.danger,
     flex: 1,
   },
 
@@ -1522,11 +1607,9 @@ const st = StyleSheet.create({
   footerBrand: {
     ...Fonts.bodySemibold,
     fontSize: TypeScale.bodySm,
-    color: Colors.electric,
   },
   footerVersion: {
     ...Fonts.mono,
     fontSize: TypeScale.tiny,
-    color: Colors.textDisabled,
   },
 });
