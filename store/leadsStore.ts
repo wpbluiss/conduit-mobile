@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import { api, Lead, DashboardStats, AgentStatus } from '../lib/api';
+import {
+  api,
+  Lead,
+  DashboardStats,
+  AgentStatus,
+  getLeadsFromSupabase,
+  getDashboardStatsFromSupabase,
+  updateLeadStatusInSupabase,
+} from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
 
@@ -72,39 +80,78 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   usingMockData: false,
 
   fetchLeads: async (filter) => {
-    const businessId = getBusinessId();
-    if (!businessId) {
-      set({ leads: MOCK_LEADS, usingMockData: true, isLoading: false });
+    // Guest mode: always use mock data
+    if (useAuthStore.getState().isGuestMode) {
+      set({ leads: MOCK_LEADS, isLoading: false, usingMockData: true });
       return;
     }
     try {
       set({ isLoading: true, error: null });
-      const period = filter || get().filter;
-      const leads = await api.getLeads(businessId, period !== 'all' ? { period } : undefined);
-      set({ leads, isLoading: false, usingMockData: false });
+      // Try Supabase directly first
+      const supabaseLeads = await getLeadsFromSupabase();
+      if (supabaseLeads.length > 0) {
+        set({ leads: supabaseLeads, isLoading: false, usingMockData: false });
+        return;
+      }
     } catch (err: any) {
-      console.warn('[LeadsStore] fetchLeads failed, using mock data:', err.message);
-      set({ leads: MOCK_LEADS, isLoading: false, usingMockData: true });
+      console.warn('[LeadsStore] Supabase query failed, trying API:', err.message);
     }
+    // Fallback: try the FastAPI backend
+    const businessId = getBusinessId();
+    if (businessId) {
+      try {
+        const period = filter || get().filter;
+        const leads = await api.getLeads(businessId, period !== 'all' ? { period } : undefined);
+        if (leads.length > 0) {
+          set({ leads, isLoading: false, usingMockData: false });
+          return;
+        }
+      } catch (err: any) {
+        console.warn('[LeadsStore] API fallback failed:', err.message);
+      }
+    }
+    // Final fallback: mock data
+    set({ leads: MOCK_LEADS, isLoading: false, usingMockData: true });
   },
 
   fetchDashboard: async () => {
-    const businessId = getBusinessId();
-    if (!businessId) {
+    // Guest mode: always use mock data
+    if (useAuthStore.getState().isGuestMode) {
       set({ dashboardStats: MOCK_DASHBOARD, usingMockData: true });
       return;
     }
     try {
       set({ error: null });
-      const stats = await api.getDashboardStats(businessId);
-      set({ dashboardStats: stats, usingMockData: false });
+      // Try Supabase directly first
+      const stats = await getDashboardStatsFromSupabase();
+      if (stats && (stats.leads_today > 0 || stats.leads_this_month > 0)) {
+        set({ dashboardStats: stats, usingMockData: false });
+        return;
+      }
     } catch (err: any) {
-      console.warn('[LeadsStore] fetchDashboard failed, using mock data:', err.message);
-      set({ dashboardStats: MOCK_DASHBOARD, usingMockData: true });
+      console.warn('[LeadsStore] Supabase dashboard failed, trying API:', err.message);
     }
+    // Fallback: try the FastAPI backend
+    const businessId = getBusinessId();
+    if (businessId) {
+      try {
+        const stats = await api.getDashboardStats(businessId);
+        set({ dashboardStats: stats, usingMockData: false });
+        return;
+      } catch (err: any) {
+        console.warn('[LeadsStore] API dashboard fallback failed:', err.message);
+      }
+    }
+    // Final fallback: mock data
+    set({ dashboardStats: MOCK_DASHBOARD, usingMockData: true });
   },
 
   fetchAgentStatus: async () => {
+    // Guest mode: always use mock data
+    if (useAuthStore.getState().isGuestMode) {
+      set({ agentStatus: MOCK_AGENT, usingMockData: true });
+      return;
+    }
     const businessId = getBusinessId();
     if (!businessId) {
       set({ agentStatus: MOCK_AGENT, usingMockData: true });
@@ -151,9 +198,14 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     // Optimistic update
     set((s) => ({ leads: s.leads.map((l) => l.id === id ? { ...l, status: status as Lead['status'] } : l) }));
     try {
-      await api.updateLeadStatus(id, status);
+      await updateLeadStatusInSupabase(id, status);
     } catch (err: any) {
-      console.warn('[LeadsStore] updateLeadStatus failed:', err.message);
+      console.warn('[LeadsStore] Supabase status update failed, trying API:', err.message);
+      try {
+        await api.updateLeadStatus(id, status);
+      } catch (apiErr: any) {
+        console.warn('[LeadsStore] API status update also failed:', apiErr.message);
+      }
     }
   },
 
@@ -166,14 +218,40 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
 
   subscribeToRealtime: (businessId) => {
+    // businessId here is actually the client_id from the clients table
     const channel = supabase
-      .channel('leads-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads', filter: `business_id=eq.${businessId}` },
+      .channel('calls-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calls', filter: `client_id=eq.${businessId}` },
         (payload) => {
-          const newLead = payload.new as Lead;
+          const call = payload.new as any;
+          const newLead: Lead = {
+            id: call.id,
+            caller_name: call.caller_name || 'Unknown Caller',
+            caller_phone: call.caller_phone || '',
+            summary: call.transcript_summary || call.service_needed || call.notes || 'New call',
+            status: call.status === 'converted' ? 'booked' : (call.status || 'new'),
+            created_at: call.created_at,
+            business_id: call.client_id || '',
+          };
           set((s) => ({
             leads: [newLead, ...s.leads],
             dashboardStats: s.dashboardStats ? { ...s.dashboardStats, leads_today: s.dashboardStats.leads_today + 1 } : null,
+          }));
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls', filter: `client_id=eq.${businessId}` },
+        (payload) => {
+          const call = payload.new as any;
+          const updatedLead: Lead = {
+            id: call.id,
+            caller_name: call.caller_name || 'Unknown Caller',
+            caller_phone: call.caller_phone || '',
+            summary: call.transcript_summary || call.service_needed || call.notes || 'No summary',
+            status: call.status === 'converted' ? 'booked' : (call.status || 'new'),
+            created_at: call.created_at,
+            business_id: call.client_id || '',
+          };
+          set((s) => ({
+            leads: s.leads.map((l) => l.id === updatedLead.id ? updatedLead : l),
           }));
         })
       .subscribe();

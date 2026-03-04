@@ -4,17 +4,17 @@
     "slug": "conduit-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "conduitai",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/images/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#030712"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.conduitai.app",
+      "bundleIdentifier": "io.conduitai.app",
       "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
@@ -25,10 +25,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundColor": "#030712"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0f1e"
       },
-      "package": "com.conduitai.app",
+      "package": "io.conduitai.app",
       "versionCode": 1
     },
     "plugins": [
@@ -42,6 +42,11 @@
         }
       ]
     ],
+    "extra": {
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      }
+    },
     "experiments": {
       "typedRoutes": true
     }

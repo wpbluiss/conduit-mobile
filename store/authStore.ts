@@ -7,10 +7,12 @@ interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isGuestMode: boolean;
   initialize: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, metadata?: Record<string, unknown>) => Promise<void>;
   signOut: () => Promise<void>;
+  setGuestMode: (enabled: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -18,6 +20,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   isLoading: true,
   isAuthenticated: false,
+  isGuestMode: false,
 
   initialize: async () => {
     try {
@@ -58,7 +61,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       await supabase.auth.signOut();
-      set({ user: null, session: null, isAuthenticated: false, isLoading: false });
+      set({ user: null, session: null, isAuthenticated: false, isGuestMode: false, isLoading: false });
     } catch (error) { set({ isLoading: false }); throw error; }
+  },
+
+  setGuestMode: (enabled) => {
+    set({ isGuestMode: enabled });
   },
 }));

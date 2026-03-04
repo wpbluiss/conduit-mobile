@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
@@ -476,6 +477,12 @@ export default function LoginScreen() {
     }
   };
 
+  const handleExplore = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    useAuthStore.getState().setGuestMode(true);
+    router.replace('/(tabs)');
+  }, []);
+
   const bottomSlide = bottomFade.interpolate({
     inputRange: [0, 1],
     outputRange: [20, 0],
@@ -555,6 +562,11 @@ export default function LoginScreen() {
             size="lg"
           />
           <Text style={st.trialNote}>14 days free · No commitment · Cancel anytime</Text>
+          <Pressable onPress={handleExplore} style={st.exploreBtn} hitSlop={8}>
+            <Text style={st.exploreText}>Just browsing? </Text>
+            <Text style={st.exploreLinkText}>Explore the app</Text>
+            <Ionicons name="arrow-forward" size={13} color={Colors.electric} />
+          </Pressable>
         </Animated.View>
       </View>
     </KeyboardAvoidingView>
@@ -686,5 +698,24 @@ const st = StyleSheet.create({
     fontSize: TypeScale.caption,
     color: Colors.textMuted,
     textAlign: 'center',
+  },
+  exploreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  exploreText: {
+    ...Fonts.body,
+    fontSize: TypeScale.bodySm,
+    color: Colors.textMuted,
+  },
+  exploreLinkText: {
+    ...Fonts.bodyMedium,
+    fontSize: TypeScale.bodySm,
+    color: Colors.electric,
+    marginRight: 2,
   },
 });

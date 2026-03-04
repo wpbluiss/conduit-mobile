@@ -20,7 +20,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Colors, StatusColors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
-import { api } from '../../lib/api';
+import { api, getLeadDetailFromSupabase } from '../../lib/api';
 import type { LeadDetail, Lead } from '../../lib/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -331,6 +331,19 @@ export default function LeadDetailScreen() {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      // Try Supabase first
+      try {
+        const supabaseDetail = await getLeadDetailFromSupabase(id!);
+        if (mounted && supabaseDetail) {
+          setDetail(supabaseDetail);
+          setCurrentStatus(supabaseDetail.status);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn('[LeadDetail] Supabase fetch failed, trying API:', err);
+      }
+      // Fallback: try the FastAPI backend
       try {
         const data = await api.getLead(id!);
         if (mounted) {
@@ -338,6 +351,7 @@ export default function LeadDetailScreen() {
           setCurrentStatus(data.status);
         }
       } catch {
+        // Final fallback: use store lead + mock details
         if (mounted && storeLead) {
           const mock = MOCK_DETAILS[id!] || {};
           setDetail({

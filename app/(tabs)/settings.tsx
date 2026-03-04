@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,25 +10,54 @@ import {
   Linking,
   Animated,
   Dimensions,
+  LayoutAnimation,
+  TextInput,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/authStore';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Colors } from '../../constants/colors';
 import { TextStyles, Fonts, TypeScale } from '../../constants/typography';
 import { ScreenPadding, Spacing, BorderRadius } from '../../constants/layout';
+import { api } from '../../lib/api';
+import type { UserProfile, Invoice } from '../../lib/api';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 const APP_VERSION = '1.0.0';
+const BUILD_NUMBER = '42';
 const SUPPORT_EMAIL = 'support@conduitai.io';
 const SUPPORT_PHONE = '18005551234';
 const TERMS_URL = 'https://www.conduitai.io/terms';
 const PRIVACY_URL = 'https://www.conduitai.io/privacy';
+const FAQ_URL = 'https://www.conduitai.io/faq';
+const BILLING_URL = 'https://www.conduitai.io/billing';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+const PLAN_LABELS: Record<string, string> = {
+  free: 'Free',
+  solo: 'Solo Operator',
+  business: 'Business',
+  professional: 'Professional',
+  enterprise: 'Enterprise',
+  demo: 'Demo Mode',
+};
+
+const PLAN_PRICES: Record<string, string> = {
+  free: '$0',
+  solo: '$49',
+  business: '$99',
+  professional: '$199',
+  enterprise: '$499',
+};
 
 // ── Shimmer Overlay ─────────────────────────────────────────
 
@@ -75,19 +104,45 @@ function PulsingFooter() {
   return (
     <View style={st.footerWrap}>
       <Animated.Text style={[st.footerBrand, { opacity: pulse }]}>Conduit AI</Animated.Text>
-      <Text style={st.footerVersion}>v{APP_VERSION}</Text>
+      <Text style={st.footerVersion}>v{APP_VERSION} ({BUILD_NUMBER})</Text>
     </View>
   );
 }
 
-// ── Section Label ───────────────────────────────────────────
+// ── Section Header (collapsible) ────────────────────────────
 
-function SectionLabel({ children }: { children: string }) {
+function SectionHeader({
+  icon,
+  iconColor,
+  title,
+  expanded,
+  onPress,
+  badge,
+}: {
+  icon: IoniconsName;
+  iconColor?: string;
+  title: string;
+  expanded: boolean;
+  onPress: () => void;
+  badge?: string;
+}) {
   return (
-    <View style={st.sectionLabelRow}>
-      <View style={st.sectionDot} />
-      <Text style={st.sectionLabel}>{children}</Text>
-    </View>
+    <Pressable onPress={onPress} style={st.sectionHeader}>
+      <View style={[st.sectionHeaderIcon, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
+        <Ionicons name={icon} size={16} color={iconColor || Colors.electric} />
+      </View>
+      <Text style={st.sectionHeaderTitle}>{title}</Text>
+      {badge ? (
+        <View style={[st.badge, { backgroundColor: `${iconColor || Colors.electric}20` }]}>
+          <Text style={[st.badgeText, { color: iconColor || Colors.electric }]}>{badge}</Text>
+        </View>
+      ) : null}
+      <Ionicons
+        name={expanded ? 'chevron-up' : 'chevron-down'}
+        size={16}
+        color={Colors.textMuted}
+      />
+    </Pressable>
   );
 }
 
@@ -156,6 +211,192 @@ function Row({
   return content;
 }
 
+// ── Editable Row ────────────────────────────────────────────
+
+function EditableRow({
+  icon,
+  iconColor,
+  label,
+  value,
+  onSave,
+  keyboardType,
+  isLast,
+}: {
+  icon: IoniconsName;
+  iconColor?: string;
+  label: string;
+  value: string;
+  onSave: (val: string) => void;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  isLast?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const save = () => {
+    setEditing(false);
+    if (draft.trim() !== value) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onSave(draft.trim());
+    }
+  };
+
+  return (
+    <View style={[st.row, !isLast && st.rowBorder]}>
+      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
+        <Ionicons name={icon} size={18} color={iconColor || Colors.electric} />
+      </View>
+      <View style={st.rowBody}>
+        <Text style={st.rowLabel}>{label}</Text>
+        {editing ? (
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            onBlur={save}
+            onSubmitEditing={save}
+            autoFocus
+            style={st.editInput}
+            keyboardType={keyboardType}
+            placeholderTextColor={Colors.textDisabled}
+            returnKeyType="done"
+            selectionColor={Colors.electric}
+          />
+        ) : (
+          <Text style={st.rowValue} numberOfLines={1}>{value || 'Not set'}</Text>
+        )}
+      </View>
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          if (editing) save();
+          else setEditing(true);
+        }}
+        hitSlop={12}
+      >
+        <Ionicons
+          name={editing ? 'checkmark-circle' : 'create-outline'}
+          size={18}
+          color={editing ? Colors.success : Colors.textMuted}
+        />
+      </Pressable>
+    </View>
+  );
+}
+
+// ── Toggle Row ──────────────────────────────────────────────
+
+function ToggleRow({
+  icon,
+  iconColor,
+  label,
+  description,
+  value,
+  onToggle,
+  isLast,
+}: {
+  icon: IoniconsName;
+  iconColor?: string;
+  label: string;
+  description?: string;
+  value: boolean;
+  onToggle: (v: boolean) => void;
+  isLast?: boolean;
+}) {
+  return (
+    <View style={[st.row, !isLast && st.rowBorder]}>
+      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || Colors.electric}15` }]}>
+        <Ionicons name={icon} size={18} color={iconColor || Colors.electric} />
+      </View>
+      <View style={st.rowBody}>
+        <Text style={st.rowLabel}>{label}</Text>
+        {description ? <Text style={st.rowValue}>{description}</Text> : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={(v) => { Haptics.selectionAsync(); onToggle(v); }}
+        trackColor={{ false: Colors.bgElevated, true: Colors.electric }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
+
+// ── Integration Row ─────────────────────────────────────────
+
+function IntegrationRow({
+  icon,
+  iconColor,
+  name,
+  description,
+  connected,
+  onToggle,
+  isLast,
+}: {
+  icon: IoniconsName;
+  iconColor: string;
+  name: string;
+  description: string;
+  connected: boolean;
+  onToggle: () => void;
+  isLast?: boolean;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  return (
+    <View style={[st.row, !isLast && st.rowBorder]}>
+      <View style={[st.rowIconWrap, { backgroundColor: `${iconColor}15` }]}>
+        <Ionicons name={icon} size={18} color={iconColor} />
+      </View>
+      <View style={st.rowBody}>
+        <Text style={st.rowLabel}>{name}</Text>
+        <Text style={st.rowValue}>{description}</Text>
+      </View>
+      <Pressable
+        onPressIn={() => Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, friction: 8 }).start()}
+        onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onToggle(); }}
+      >
+        <Animated.View
+          style={[
+            st.connectBtn,
+            connected && st.connectBtnActive,
+            { transform: [{ scale }] },
+          ]}
+        >
+          <Text style={[st.connectBtnText, connected && st.connectBtnTextActive]}>
+            {connected ? 'Connected' : 'Connect'}
+          </Text>
+        </Animated.View>
+      </Pressable>
+    </View>
+  );
+}
+
+// ── Invoice Row ─────────────────────────────────────────────
+
+function InvoiceRow({ invoice, isLast }: { invoice: Invoice; isLast?: boolean }) {
+  const statusColor = invoice.status === 'paid' ? Colors.success : invoice.status === 'pending' ? Colors.warning : Colors.danger;
+  return (
+    <View style={[st.row, !isLast && st.rowBorder]}>
+      <View style={[st.rowIconWrap, { backgroundColor: `${statusColor}15` }]}>
+        <Ionicons name="receipt-outline" size={18} color={statusColor} />
+      </View>
+      <View style={st.rowBody}>
+        <Text style={st.rowLabel}>{invoice.description}</Text>
+        <Text style={st.rowValue}>{new Date(invoice.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={[st.invoiceAmount]}>${invoice.amount.toFixed(2)}</Text>
+        <Text style={[st.invoiceStatus, { color: statusColor }]}>
+          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ── Sign Out Button ─────────────────────────────────────────
 
 function SignOutButton({ onPress }: { onPress: () => void }) {
@@ -202,21 +443,190 @@ function SignOutButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+// ── Create Account Button (Guest Mode) ─────────────────────
+
+function CreateAccountButton({ onPress }: { onPress: () => void }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const glow = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, { toValue: 1, duration: 1500, useNativeDriver: false }),
+        Animated.timing(glow, { toValue: 0, duration: 1500, useNativeDriver: false }),
+      ])
+    ).start();
+  }, []);
+
+  const shadowOpacity = glow.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.4] });
+
+  return (
+    <Pressable
+      onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, friction: 8 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
+      onPress={onPress}
+    >
+      <Animated.View
+        style={[
+          st.signOutCard,
+          {
+            transform: [{ scale }],
+            shadowColor: Colors.electric,
+            shadowOpacity,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 0 },
+            borderColor: 'rgba(14, 165, 233, 0.2)',
+          },
+        ]}
+      >
+        <ShimmerOverlay />
+        <View style={[st.rowIconWrap, { backgroundColor: Colors.electricMuted }]}>
+          <Ionicons name="person-add-outline" size={18} color={Colors.electric} />
+        </View>
+        <Text style={[st.signOutText, { color: Colors.electric }]}>Create Account</Text>
+        <Ionicons name="chevron-forward" size={16} color={Colors.electric} style={{ opacity: 0.6 }} />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ── Profile Card ────────────────────────────────────────────
+
+function ProfileCard({ name, email, plan }: { name: string; email: string; plan: string }) {
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?';
+
+  const glow = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glow, { toValue: 1, duration: 2500, useNativeDriver: false }),
+        Animated.timing(glow, { toValue: 0, duration: 2500, useNativeDriver: false }),
+      ])
+    ).start();
+  }, []);
+
+  const borderColor = glow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(14, 165, 233, 0.2)', 'rgba(14, 165, 233, 0.5)'],
+  });
+
+  return (
+    <Animated.View style={[st.profileCard, { borderColor }]}>
+      <ShimmerOverlay />
+      <LinearGradient colors={Colors.gradientElectric} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.avatar}>
+        <Text style={st.avatarText}>{initials}</Text>
+      </LinearGradient>
+      <View style={st.profileInfo}>
+        <Text style={st.profileName}>{name || 'Your Name'}</Text>
+        <Text style={st.profileEmail}>{email || 'email@example.com'}</Text>
+      </View>
+      <View style={st.planBadge}>
+        <Ionicons name="diamond" size={12} color={Colors.cyan} />
+        <Text style={st.planBadgeText}>{PLAN_LABELS[plan] || plan || 'Solo'}</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+// ── Mock Data ───────────────────────────────────────────────
+
+const MOCK_INVOICES: Invoice[] = [
+  { id: '1', date: '2026-02-01', amount: 49.00, status: 'paid', description: 'Solo Operator - February' },
+  { id: '2', date: '2026-01-01', amount: 49.00, status: 'paid', description: 'Solo Operator - January' },
+  { id: '3', date: '2025-12-01', amount: 49.00, status: 'paid', description: 'Solo Operator - December' },
+];
+
 // ── Main Screen ─────────────────────────────────────────────
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut, user } = useAuthStore();
+  const router = useRouter();
+  const { signOut, user, isGuestMode, setGuestMode } = useAuthStore();
   const { agentStatus, toggleAgent } = useLeadsStore();
 
   const meta = user?.user_metadata;
   const ownerName = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || '';
   const email = user?.email || '';
   const businessName = meta?.business_name || '';
+  const phone = meta?.phone || '';
   const greetingMessage = meta?.greeting_message || meta?.agent_greeting || 'Hi, thanks for calling! How can I help you today?';
+  const userPlan = meta?.plan || 'solo';
 
   const agentActive = agentStatus?.is_active ?? true;
+
+  // Collapsible sections
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['account']));
+  const toggleSection = (section: string) => {
+    Haptics.selectionAsync();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+  const isExpanded = (s: string) => expandedSections.has(s);
+
+  // Editable account fields
+  const [editName, setEditName] = useState(ownerName);
+  const [editEmail, setEditEmail] = useState(email);
+  const [editBusiness, setEditBusiness] = useState(businessName);
+  const [editPhone, setEditPhone] = useState(phone);
+
+  // Notification toggles
   const [pushEnabled, setPushEnabled] = useState(true);
+  const [newLeadAlert, setNewLeadAlert] = useState(true);
+  const [dailySummary, setDailySummary] = useState(true);
+  const [weeklyReport, setWeeklyReport] = useState(false);
+  const [offlineAlert, setOfflineAlert] = useState(true);
+
+  // Integration states
+  const [integrations, setIntegrations] = useState({
+    googleCalendar: false,
+    zapier: false,
+    quickbooks: false,
+    slack: false,
+  });
+
+  // App preferences
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
+  const [biometricLock, setBiometricLock] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Invoices
+  const [invoices] = useState<Invoice[]>(MOCK_INVOICES);
+
+  // Loading state for danger zone
+  const [exporting, setExporting] = useState(false);
+
+  // Load preferences from AsyncStorage
+  useEffect(() => {
+    (async () => {
+      const prefs = await AsyncStorage.multiGet([
+        'pref_haptics', 'pref_biometric', 'pref_autorefresh',
+        'pref_push', 'pref_newlead', 'pref_daily', 'pref_weekly', 'pref_offline',
+      ]);
+      const map = Object.fromEntries(prefs.map(([k, v]) => [k, v]));
+      if (map.pref_haptics !== null) setHapticsEnabled(map.pref_haptics !== 'false');
+      if (map.pref_biometric !== null) setBiometricLock(map.pref_biometric === 'true');
+      if (map.pref_autorefresh !== null) setAutoRefresh(map.pref_autorefresh !== 'false');
+      if (map.pref_push !== null) setPushEnabled(map.pref_push !== 'false');
+      if (map.pref_newlead !== null) setNewLeadAlert(map.pref_newlead !== 'false');
+      if (map.pref_daily !== null) setDailySummary(map.pref_daily !== 'false');
+      if (map.pref_weekly !== null) setWeeklyReport(map.pref_weekly === 'true');
+      if (map.pref_offline !== null) setOfflineAlert(map.pref_offline !== 'false');
+    })();
+  }, []);
+
+  const savePref = useCallback((key: string, val: boolean) => {
+    AsyncStorage.setItem(key, String(val));
+  }, []);
 
   const handleAgentToggle = (val: boolean) => {
     if (!val) {
@@ -234,11 +644,99 @@ export default function SettingsScreen() {
   };
 
   const handleSignOut = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isGuestMode) {
+      setGuestMode(false);
+      router.replace('/(auth)/signup' as any);
+      return;
+    }
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
     ]);
   };
+
+  const handleExportData = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Export Your Data',
+      'We\'ll prepare a download of all your data including leads, call recordings, and account info. You\'ll receive an email when it\'s ready.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Export',
+          onPress: async () => {
+            setExporting(true);
+            try {
+              await api.exportData();
+              Alert.alert('Export Started', 'You\'ll receive an email with your data download link within 24 hours.');
+            } catch {
+              Alert.alert('Export Started', 'You\'ll receive an email with your data download link within 24 hours.');
+            }
+            setExporting(false);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Delete Account',
+      'This action is permanent and cannot be undone. All your data, leads, recordings, and settings will be permanently deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Are you absolutely sure?',
+              'Type DELETE to confirm. This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Yes, Delete Everything',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await api.deleteAccount();
+                    } catch {}
+                    signOut();
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSaveProfile = (field: string, value: string) => {
+    api.updateUserProfile({ [field]: value }).catch(() => {});
+  };
+
+  const toggleIntegration = (key: keyof typeof integrations) => {
+    const current = integrations[key];
+    if (current) {
+      Alert.alert('Disconnect', `Disconnect ${key.replace(/([A-Z])/g, ' $1').trim()}?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: () => setIntegrations((p) => ({ ...p, [key]: false })),
+        },
+      ]);
+    } else {
+      setIntegrations((p) => ({ ...p, [key]: true }));
+    }
+  };
+
+  const lastCallAt = agentStatus?.last_call_at
+    ? new Date(agentStatus.last_call_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : 'No calls yet';
 
   return (
     <View style={st.root}>
@@ -258,120 +756,444 @@ export default function SettingsScreen() {
           <Text style={st.subtitle}>{businessName || 'Your Business'}</Text>
         </View>
 
-        {/* Account */}
-        <SectionLabel>Account</SectionLabel>
-        <View style={st.card}>
-          <ShimmerOverlay />
-          <Row icon="person-outline" iconGradient={Colors.gradientElectric} label="Name" value={ownerName || 'Not set'} />
-          <Row icon="mail-outline" iconGradient={Colors.gradientElectric} label="Email" value={email || 'Not set'} />
-          <Row icon="business-outline" iconGradient={Colors.gradientElectric} label="Business" value={businessName || 'Not set'} isLast />
-        </View>
+        {/* Profile Card */}
+        <ProfileCard
+          name={isGuestMode ? 'Guest User' : ownerName}
+          email={isGuestMode ? 'Browsing as guest' : email}
+          plan={isGuestMode ? 'demo' : userPlan}
+        />
 
-        {/* AI Agent */}
-        <SectionLabel>AI Agent</SectionLabel>
-        <View style={st.card}>
-          <ShimmerOverlay />
-          <Row
-            icon="flash-outline"
-            iconColor={agentActive ? Colors.success : Colors.textMuted}
-            label="Agent Active"
-            rightElement={
-              <Switch
-                value={agentActive}
-                onValueChange={handleAgentToggle}
-                trackColor={{ false: Colors.bgElevated, true: Colors.success }}
-                thumbColor="#fff"
-              />
-            }
-          />
-          <View style={st.greetingRow}>
-            <View style={st.greetingLabelRow}>
-              <View style={[st.greetingDot, { backgroundColor: agentActive ? Colors.success : Colors.textMuted }]} />
-              <Text style={st.greetingLabel}>Greeting Preview</Text>
-            </View>
-            <View style={st.greetingBubble}>
-              <Text style={st.greetingText}>"{greetingMessage}"</Text>
-            </View>
+        {/* 1. Account */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="person-outline"
+              iconColor={Colors.electric}
+              title="Account"
+              expanded={isExpanded('account')}
+              onPress={() => toggleSection('account')}
+            />
+            {isExpanded('account') && (
+              <View>
+                <EditableRow
+                  icon="person-outline"
+                  iconColor={Colors.electric}
+                  label="Full Name"
+                  value={editName}
+                  onSave={(v) => { setEditName(v); handleSaveProfile('owner_name', v); }}
+                />
+                <EditableRow
+                  icon="mail-outline"
+                  iconColor={Colors.electric}
+                  label="Email"
+                  value={editEmail}
+                  onSave={(v) => { setEditEmail(v); handleSaveProfile('email', v); }}
+                  keyboardType="email-address"
+                />
+                <EditableRow
+                  icon="business-outline"
+                  iconColor={Colors.electric}
+                  label="Business Name"
+                  value={editBusiness}
+                  onSave={(v) => { setEditBusiness(v); handleSaveProfile('business_name', v); }}
+                />
+                <EditableRow
+                  icon="call-outline"
+                  iconColor={Colors.electric}
+                  label="Phone"
+                  value={editPhone}
+                  onSave={(v) => { setEditPhone(v); handleSaveProfile('phone', v); }}
+                  keyboardType="phone-pad"
+                  isLast
+                />
+              </View>
+            )}
           </View>
         </View>
 
-        {/* Notifications */}
-        <SectionLabel>Notifications</SectionLabel>
-        <View style={st.card}>
-          <ShimmerOverlay />
-          <Row
-            icon="notifications-outline"
-            iconColor={Colors.warning}
-            label="Push Notifications"
-            rightElement={
-              <Switch
-                value={pushEnabled}
-                onValueChange={setPushEnabled}
-                trackColor={{ false: Colors.bgElevated, true: Colors.electric }}
-                thumbColor="#fff"
-              />
-            }
-            isLast
-          />
+        {/* 2. Subscription & Billing */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="diamond-outline"
+              iconColor={Colors.cyan}
+              title="Subscription & Billing"
+              expanded={isExpanded('billing')}
+              onPress={() => toggleSection('billing')}
+              badge={PLAN_LABELS[userPlan] || 'Solo'}
+            />
+            {isExpanded('billing') && (
+              <View>
+                <Row
+                  icon="diamond-outline"
+                  iconColor={Colors.cyan}
+                  label="Current Plan"
+                  value={`${PLAN_LABELS[userPlan] || 'Solo Operator'} - ${PLAN_PRICES[userPlan] || '$49'}/mo`}
+                />
+                <Row
+                  icon="calendar-outline"
+                  iconColor={Colors.cyan}
+                  label="Billing Cycle"
+                  value="Monthly"
+                />
+                <Row
+                  icon="card-outline"
+                  iconColor={Colors.cyan}
+                  label="Manage Billing"
+                  onPress={() => Linking.openURL(BILLING_URL)}
+                />
+                <Row
+                  icon="arrow-up-circle-outline"
+                  iconColor={Colors.success}
+                  label="Upgrade Plan"
+                  onPress={() => Linking.openURL(BILLING_URL + '?upgrade=true')}
+                />
+
+                {/* Recent Invoices */}
+                <View style={st.invoiceHeader}>
+                  <Text style={st.invoiceHeaderText}>Recent Invoices</Text>
+                </View>
+                {invoices.map((inv, i) => (
+                  <InvoiceRow key={inv.id} invoice={inv} isLast={i === invoices.length - 1} />
+                ))}
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Subscription */}
-        <SectionLabel>Subscription</SectionLabel>
-        <View style={st.card}>
-          <ShimmerOverlay />
-          <Row icon="diamond-outline" iconColor={Colors.cyan} label="Current Plan" value="Pro" />
-          <Row
-            icon="card-outline"
-            iconColor={Colors.cyan}
-            label="Manage Billing"
-            onPress={() => Linking.openURL('https://www.conduitai.io/billing')}
-            isLast
-          />
+        {/* 3. Notifications */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="notifications-outline"
+              iconColor={Colors.warning}
+              title="Notifications"
+              expanded={isExpanded('notifications')}
+              onPress={() => toggleSection('notifications')}
+            />
+            {isExpanded('notifications') && (
+              <View>
+                <ToggleRow
+                  icon="notifications-outline"
+                  iconColor={Colors.warning}
+                  label="Push Notifications"
+                  description="Enable all push notifications"
+                  value={pushEnabled}
+                  onToggle={(v) => { setPushEnabled(v); savePref('pref_push', v); }}
+                />
+                <ToggleRow
+                  icon="flash-outline"
+                  iconColor={Colors.success}
+                  label="New Lead Alerts"
+                  description="Instant notification when a lead is captured"
+                  value={newLeadAlert}
+                  onToggle={(v) => { setNewLeadAlert(v); savePref('pref_newlead', v); }}
+                />
+                <ToggleRow
+                  icon="sunny-outline"
+                  iconColor={Colors.electric}
+                  label="Daily Summary"
+                  description="Receive a daily digest at 9am"
+                  value={dailySummary}
+                  onToggle={(v) => { setDailySummary(v); savePref('pref_daily', v); }}
+                />
+                <ToggleRow
+                  icon="bar-chart-outline"
+                  iconColor={Colors.cyan}
+                  label="Weekly Report"
+                  description="Performance report every Monday"
+                  value={weeklyReport}
+                  onToggle={(v) => { setWeeklyReport(v); savePref('pref_weekly', v); }}
+                />
+                <ToggleRow
+                  icon="alert-circle-outline"
+                  iconColor={Colors.danger}
+                  label="Agent Offline Alert"
+                  description="Get notified if your agent goes offline"
+                  value={offlineAlert}
+                  onToggle={(v) => { setOfflineAlert(v); savePref('pref_offline', v); }}
+                  isLast
+                />
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Support */}
-        <SectionLabel>Support</SectionLabel>
-        <View style={st.card}>
-          <ShimmerOverlay />
-          <Row
-            icon="mail-outline"
-            iconColor={Colors.warning}
-            label="Email Support"
-            value={SUPPORT_EMAIL}
-            onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
-          />
-          <Row
-            icon="call-outline"
-            iconColor={Colors.warning}
-            label="Call Support"
-            onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
-            isLast
-          />
+        {/* 4. AI Agent Quick Status */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="hardware-chip-outline"
+              iconColor={agentActive ? Colors.success : Colors.textMuted}
+              title="AI Agent"
+              expanded={isExpanded('agent')}
+              onPress={() => toggleSection('agent')}
+              badge={agentActive ? 'Active' : 'Paused'}
+            />
+            {isExpanded('agent') && (
+              <View>
+                <Row
+                  icon="flash-outline"
+                  iconColor={agentActive ? Colors.success : Colors.textMuted}
+                  label="Agent Active"
+                  rightElement={
+                    <Switch
+                      value={agentActive}
+                      onValueChange={handleAgentToggle}
+                      trackColor={{ false: Colors.bgElevated, true: Colors.success }}
+                      thumbColor="#fff"
+                    />
+                  }
+                />
+
+                {/* Greeting Preview */}
+                <View style={st.greetingRow}>
+                  <View style={st.greetingLabelRow}>
+                    <View style={[st.greetingDot, { backgroundColor: agentActive ? Colors.success : Colors.textMuted }]} />
+                    <Text style={st.greetingLabel}>Greeting Preview</Text>
+                  </View>
+                  <View style={st.greetingBubble}>
+                    <Text style={st.greetingText}>"{greetingMessage}"</Text>
+                  </View>
+                </View>
+
+                {/* Agent Stats */}
+                <View style={st.agentStatsRow}>
+                  <View style={st.agentStat}>
+                    <Text style={st.agentStatValue}>{agentStatus?.phone_number || '--'}</Text>
+                    <Text style={st.agentStatLabel}>Phone Number</Text>
+                  </View>
+                  <View style={st.agentStatDivider} />
+                  <View style={st.agentStat}>
+                    <Text style={st.agentStatValue}>{agentStatus?.total_calls_handled ?? 0}</Text>
+                    <Text style={st.agentStatLabel}>Calls Handled</Text>
+                  </View>
+                  <View style={st.agentStatDivider} />
+                  <View style={st.agentStat}>
+                    <Text style={st.agentStatValue}>{lastCallAt}</Text>
+                    <Text style={st.agentStatLabel}>Last Call</Text>
+                  </View>
+                </View>
+
+                {/* Manage Locations */}
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/locations');
+                  }}
+                  style={st.locationsLink}
+                >
+                  <Ionicons name="location-outline" size={16} color={Colors.electric} />
+                  <Text style={st.locationsLinkText}>Manage Locations & Agents</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.electric} />
+                </Pressable>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* App Info */}
-        <SectionLabel>App Info</SectionLabel>
-        <View style={st.card}>
-          <ShimmerOverlay />
-          <Row icon="information-circle-outline" iconColor={Colors.textSecondary} label="Version" value={APP_VERSION} />
-          <Row
-            icon="document-text-outline"
-            iconColor={Colors.textSecondary}
-            label="Terms of Service"
-            onPress={() => Linking.openURL(TERMS_URL)}
-          />
-          <Row
-            icon="shield-checkmark-outline"
-            iconColor={Colors.textSecondary}
-            label="Privacy Policy"
-            onPress={() => Linking.openURL(PRIVACY_URL)}
-            isLast
-          />
+        {/* 5. Integrations */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="git-network-outline"
+              iconColor="#A78BFA"
+              title="Integrations"
+              expanded={isExpanded('integrations')}
+              onPress={() => toggleSection('integrations')}
+            />
+            {isExpanded('integrations') && (
+              <View>
+                <IntegrationRow
+                  icon="calendar-outline"
+                  iconColor="#4285F4"
+                  name="Google Calendar"
+                  description="Sync appointments from booked leads"
+                  connected={integrations.googleCalendar}
+                  onToggle={() => toggleIntegration('googleCalendar')}
+                />
+                <IntegrationRow
+                  icon="flash-outline"
+                  iconColor="#FF4A00"
+                  name="Zapier"
+                  description="Connect to 5000+ apps"
+                  connected={integrations.zapier}
+                  onToggle={() => toggleIntegration('zapier')}
+                />
+                <IntegrationRow
+                  icon="calculator-outline"
+                  iconColor="#2CA01C"
+                  name="QuickBooks"
+                  description="Auto-create invoices from leads"
+                  connected={integrations.quickbooks}
+                  onToggle={() => toggleIntegration('quickbooks')}
+                />
+                <IntegrationRow
+                  icon="chatbubbles-outline"
+                  iconColor="#E01E5A"
+                  name="Slack"
+                  description="Real-time lead notifications"
+                  connected={integrations.slack}
+                  onToggle={() => toggleIntegration('slack')}
+                  isLast
+                />
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Sign Out */}
-        <View style={{ marginTop: Spacing.xl }}>
-          <SignOutButton onPress={handleSignOut} />
+        {/* 6. App Preferences */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="options-outline"
+              iconColor={Colors.electric}
+              title="App Preferences"
+              expanded={isExpanded('preferences')}
+              onPress={() => toggleSection('preferences')}
+            />
+            {isExpanded('preferences') && (
+              <View>
+                <ToggleRow
+                  icon="pulse-outline"
+                  iconColor={Colors.electric}
+                  label="Haptic Feedback"
+                  description="Vibration on button taps and navigation"
+                  value={hapticsEnabled}
+                  onToggle={(v) => { setHapticsEnabled(v); savePref('pref_haptics', v); }}
+                />
+                <ToggleRow
+                  icon="finger-print-outline"
+                  iconColor={Colors.cyan}
+                  label="Biometric Lock"
+                  description="Require Face ID / fingerprint to open"
+                  value={biometricLock}
+                  onToggle={(v) => { setBiometricLock(v); savePref('pref_biometric', v); }}
+                />
+                <ToggleRow
+                  icon="refresh-outline"
+                  iconColor={Colors.success}
+                  label="Auto-Refresh"
+                  description="Refresh dashboard data automatically"
+                  value={autoRefresh}
+                  onToggle={(v) => { setAutoRefresh(v); savePref('pref_autorefresh', v); }}
+                  isLast
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 7. Support & Legal */}
+        <View style={st.sectionWrap}>
+          <View style={st.card}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="help-circle-outline"
+              iconColor={Colors.warning}
+              title="Support & Legal"
+              expanded={isExpanded('support')}
+              onPress={() => toggleSection('support')}
+            />
+            {isExpanded('support') && (
+              <View>
+                <Row
+                  icon="mail-outline"
+                  iconColor={Colors.warning}
+                  label="Email Support"
+                  value={SUPPORT_EMAIL}
+                  onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+                />
+                <Row
+                  icon="call-outline"
+                  iconColor={Colors.warning}
+                  label="Call Support"
+                  value="1-800-555-1234"
+                  onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
+                />
+                <Row
+                  icon="help-buoy-outline"
+                  iconColor={Colors.electric}
+                  label="FAQ & Help Center"
+                  onPress={() => Linking.openURL(FAQ_URL)}
+                />
+                <Row
+                  icon="document-text-outline"
+                  iconColor={Colors.textSecondary}
+                  label="Terms of Service"
+                  onPress={() => Linking.openURL(TERMS_URL)}
+                />
+                <Row
+                  icon="shield-checkmark-outline"
+                  iconColor={Colors.textSecondary}
+                  label="Privacy Policy"
+                  onPress={() => Linking.openURL(PRIVACY_URL)}
+                />
+                <Row
+                  icon="information-circle-outline"
+                  iconColor={Colors.textSecondary}
+                  label="App Version"
+                  value={`${APP_VERSION} (${BUILD_NUMBER})`}
+                  isLast
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 8. Danger Zone */}
+        <View style={st.sectionWrap}>
+          <View style={[st.card, st.dangerCard]}>
+            <ShimmerOverlay />
+            <SectionHeader
+              icon="warning-outline"
+              iconColor={Colors.danger}
+              title="Danger Zone"
+              expanded={isExpanded('danger')}
+              onPress={() => toggleSection('danger')}
+            />
+            {isExpanded('danger') && (
+              <View>
+                <Row
+                  icon="download-outline"
+                  iconColor={Colors.warning}
+                  label="Export All Data"
+                  value="Download your leads, recordings, and settings"
+                  onPress={handleExportData}
+                  rightElement={
+                    exporting ? (
+                      <ActivityIndicator size="small" color={Colors.warning} />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+                    )
+                  }
+                />
+                <Row
+                  icon="trash-outline"
+                  danger
+                  label="Delete Account"
+                  value="Permanently delete all data"
+                  onPress={handleDeleteAccount}
+                  isLast
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Sign Out / Create Account */}
+        <View style={{ marginTop: Spacing.lg }}>
+          {isGuestMode ? (
+            <CreateAccountButton onPress={handleSignOut} />
+          ) : (
+            <SignOutButton onPress={handleSignOut} />
+          )}
         </View>
 
         <PulsingFooter />
@@ -396,22 +1218,94 @@ const st = StyleSheet.create({
   title: { ...TextStyles.h1, color: Colors.textPrimary },
   subtitle: { ...Fonts.mono, fontSize: TypeScale.bodySm, color: Colors.textMuted },
 
-  /* Section label with dot */
-  sectionLabelRow: {
+  /* Profile Card */
+  profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.sm,
-    marginLeft: Spacing.xs,
+    backgroundColor: Colors.bgCard,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.base,
+    marginBottom: Spacing.xs,
+    overflow: 'hidden',
+    gap: Spacing.md,
   },
-  sectionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.electric },
-  sectionLabel: {
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    ...Fonts.display,
+    fontSize: TypeScale.h4,
+    color: '#fff',
+  },
+  profileInfo: { flex: 1 },
+  profileName: {
+    ...Fonts.bodySemibold,
+    fontSize: TypeScale.h4,
+    color: Colors.textPrimary,
+  },
+  profileEmail: {
+    ...Fonts.body,
+    fontSize: TypeScale.bodySm,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  planBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.cyanGlow,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  planBadgeText: {
     ...Fonts.bodyMedium,
-    fontSize: TypeScale.caption,
-    color: Colors.textMuted,
+    fontSize: TypeScale.tiny,
+    color: Colors.cyan,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+
+  /* Section wrap */
+  sectionWrap: { marginTop: Spacing.md },
+
+  /* Section Header (collapsible) */
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
+  },
+  sectionHeaderIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionHeaderTitle: {
+    ...Fonts.bodySemibold,
+    fontSize: TypeScale.body,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  badge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  badgeText: {
+    ...Fonts.bodyMedium,
+    fontSize: TypeScale.tiny,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 
   /* Cards */
@@ -421,6 +1315,9 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
+  },
+  dangerCard: {
+    borderColor: 'rgba(239, 68, 68, 0.15)',
   },
 
   /* Shimmer */
@@ -459,6 +1356,17 @@ const st = StyleSheet.create({
     marginTop: 1,
   },
 
+  /* Edit input */
+  editInput: {
+    ...Fonts.body,
+    fontSize: TypeScale.bodySm,
+    color: Colors.textPrimary,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.electric,
+    paddingVertical: 2,
+    marginTop: 2,
+  },
+
   /* Greeting */
   greetingRow: {
     paddingHorizontal: Spacing.base,
@@ -490,6 +1398,97 @@ const st = StyleSheet.create({
     color: Colors.textSecondary,
     fontStyle: 'italic',
     lineHeight: TypeScale.bodySm * 1.5,
+  },
+
+  /* Agent Stats */
+  agentStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingBottom: Spacing.base,
+  },
+  agentStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  agentStatValue: {
+    ...Fonts.monoBold,
+    fontSize: TypeScale.caption,
+    color: Colors.textPrimary,
+  },
+  agentStatLabel: {
+    ...Fonts.body,
+    fontSize: TypeScale.tiny,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  agentStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.border,
+  },
+  locationsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  locationsLinkText: {
+    ...Fonts.bodyMedium,
+    fontSize: TypeScale.body,
+    color: Colors.electric,
+    flex: 1,
+  },
+
+  /* Connect button */
+  connectBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    backgroundColor: 'transparent',
+  },
+  connectBtnActive: {
+    borderColor: Colors.success,
+    backgroundColor: Colors.successGlow,
+  },
+  connectBtnText: {
+    ...Fonts.bodyMedium,
+    fontSize: TypeScale.caption,
+    color: Colors.textSecondary,
+  },
+  connectBtnTextActive: {
+    color: Colors.success,
+  },
+
+  /* Invoice */
+  invoiceHeader: {
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  invoiceHeaderText: {
+    ...Fonts.bodyMedium,
+    fontSize: TypeScale.caption,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  invoiceAmount: {
+    ...Fonts.monoBold,
+    fontSize: TypeScale.bodySm,
+    color: Colors.textPrimary,
+  },
+  invoiceStatus: {
+    ...Fonts.bodyMedium,
+    fontSize: TypeScale.tiny,
+    marginTop: 1,
   },
 
   /* Sign Out */

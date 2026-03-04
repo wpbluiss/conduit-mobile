@@ -1,14 +1,11 @@
-import { Platform } from 'react-native';
-const isIOS = Platform.OS === 'ios';
-
 export const Fonts = {
-  display: { fontFamily: isIOS ? 'System' : 'sans-serif', fontWeight: '700' as const },
-  displayBold: { fontFamily: isIOS ? 'System' : 'sans-serif', fontWeight: '800' as const },
-  body: { fontFamily: isIOS ? 'System' : 'sans-serif', fontWeight: '400' as const },
-  bodyMedium: { fontFamily: isIOS ? 'System' : 'sans-serif-medium', fontWeight: '500' as const },
-  bodySemibold: { fontFamily: isIOS ? 'System' : 'sans-serif-medium', fontWeight: '600' as const },
-  mono: { fontFamily: isIOS ? 'Menlo' : 'monospace', fontWeight: '400' as const },
-  monoBold: { fontFamily: isIOS ? 'Menlo' : 'monospace', fontWeight: '700' as const },
+  display: { fontFamily: 'Outfit_700Bold' },
+  displayBold: { fontFamily: 'Outfit_800ExtraBold' },
+  body: { fontFamily: 'Outfit_400Regular' },
+  bodyMedium: { fontFamily: 'Outfit_500Medium' },
+  bodySemibold: { fontFamily: 'Outfit_600SemiBold' },
+  mono: { fontFamily: 'JetBrainsMono_400Regular' },
+  monoBold: { fontFamily: 'JetBrainsMono_700Bold' },
 };
 
 export const TypeScale = {

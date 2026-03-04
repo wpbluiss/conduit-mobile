@@ -299,7 +299,7 @@ export default function DashboardScreen() {
     await refresh();
   }, []);
 
-  const stats = dashboardStats || { leads_today: 0, revenue_saved: 0, capture_rate: 0 };
+  const stats = dashboardStats || { leads_today: 0, leads_this_week: 0, leads_this_month: 0, revenue_saved: 0, capture_rate: 0 };
   const recentLeads = leads.slice(0, 5);
   const meta = user?.user_metadata;
   const name = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || '';
@@ -412,17 +412,15 @@ export default function DashboardScreen() {
         {/* ── Stat Cards ── */}
         <View style={st.statsRow}>
           <StatCard
-            label="LEADS"
+            label="TODAY"
             value={stats.leads_today}
             gradientEnd="rgba(14, 165, 233, 0.12)"
             borderColor="rgba(14, 165, 233, 0.15)"
             accentColor={Colors.electric}
-            trend="↑ 18%"
           />
           <StatCard
-            label="REVENUE"
-            value={stats.revenue_saved}
-            prefix="$"
+            label="THIS MONTH"
+            value={stats.leads_this_month}
             gradientEnd="rgba(16, 185, 129, 0.12)"
             borderColor="rgba(16, 185, 129, 0.15)"
             accentColor={Colors.success}
@@ -436,6 +434,98 @@ export default function DashboardScreen() {
             accentColor={Colors.cyan}
           />
         </View>
+
+        {/* ── Payments Card ── */}
+        <Pressable
+          onPress={() => router.push('/payments')}
+          style={({ pressed }) => [st.paymentsCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+        >
+          <ShimmerOverlay />
+          <View style={st.paymentsRow}>
+            <LinearGradient
+              colors={Colors.gradientElectric}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={st.paymentsIcon}
+            >
+              <Ionicons name="card-outline" size={20} color="#fff" />
+            </LinearGradient>
+            <View style={st.paymentsTextCol}>
+              <Text style={st.paymentsTitle}>Payments & Deposits</Text>
+              <Text style={st.paymentsSub}>
+                ${stats.revenue_saved ? stats.revenue_saved.toLocaleString() : '0'} collected
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </View>
+        </Pressable>
+
+        {/* ── Calendar Card ── */}
+        <Pressable
+          onPress={() => router.push('/calendar')}
+          style={({ pressed }) => [st.calendarCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+        >
+          <ShimmerOverlay />
+          <View style={st.calendarRow}>
+            <LinearGradient
+              colors={[Colors.cyan, Colors.electric]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={st.calendarIcon}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#fff" />
+            </LinearGradient>
+            <View style={st.calendarTextCol}>
+              <Text style={st.calendarTitle}>Calendar & Bookings</Text>
+              <Text style={st.calendarSub}>{stats.leads_this_week} this week</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </View>
+        </Pressable>
+
+        {/* ── Revenue Card ── */}
+        <Pressable
+          onPress={() => router.push('/revenue')}
+          style={({ pressed }) => [st.revenueCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+        >
+          <ShimmerOverlay />
+          <View style={st.revenueRow}>
+            <LinearGradient
+              colors={[Colors.success, Colors.cyan]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={st.revenueIcon}
+            >
+              <Ionicons name="trending-up" size={20} color="#fff" />
+            </LinearGradient>
+            <View style={st.revenueTextCol}>
+              <Text style={st.revenueTitle}>Revenue Dashboard</Text>
+              <Text style={st.revenueSub}>
+                ${stats.revenue_saved ? stats.revenue_saved.toLocaleString() : '0'} saved
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </View>
+        </Pressable>
+
+        {/* ── Reviews & Reputation Card ── */}
+        <Pressable
+          onPress={() => router.push('/reviews')}
+          style={({ pressed }) => [st.reviewsCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+        >
+          <ShimmerOverlay />
+          <View style={st.reviewsRow}>
+            <LinearGradient
+              colors={['#F59E0B', '#F97316']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={st.reviewsIcon}
+            >
+              <Ionicons name="star" size={20} color="#fff" />
+            </LinearGradient>
+            <View style={st.reviewsTextCol}>
+              <Text style={st.reviewsTitle}>Reviews & Reputation</Text>
+              <Text style={st.reviewsSub}>4.8 avg rating</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </View>
+        </Pressable>
 
         {/* ── Recent Activity Header ── */}
         <View style={st.sectionHeader}>
@@ -619,6 +709,90 @@ const st = StyleSheet.create({
     width: SCREEN_W * 0.6,
     zIndex: 1,
   },
+
+  /* ── Payments Card ── */
+  paymentsCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.base,
+    overflow: 'hidden',
+  },
+  paymentsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  paymentsIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentsTextCol: { flex: 1 },
+  paymentsTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
+  paymentsSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
+
+  /* ── Calendar Card ── */
+  calendarCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.base,
+    overflow: 'hidden',
+  },
+  calendarRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  calendarIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarTextCol: { flex: 1 },
+  calendarTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
+  calendarSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
+
+  /* ── Revenue Card ── */
+  revenueCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.base,
+    overflow: 'hidden',
+  },
+  revenueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  revenueIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  revenueTextCol: { flex: 1 },
+  revenueTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
+  revenueSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
+
+  /* ── Reviews Card ── */
+  reviewsCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.base,
+    overflow: 'hidden',
+  },
+  reviewsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  reviewsIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewsTextCol: { flex: 1 },
+  reviewsTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
+  reviewsSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
 
   /* ── Section Header ── */
   sectionHeader: {
