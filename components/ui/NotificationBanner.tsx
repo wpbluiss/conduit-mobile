@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -29,7 +29,7 @@ interface Props {
 }
 
 export function NotificationBanner({ data, onPress, onDismiss }: Props) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-(BANNER_HEIGHT + insets.top + 20))).current;
   const opacity = useRef(new Animated.Value(0)).current;

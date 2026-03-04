@@ -21,7 +21,7 @@ try { AudioModule = require('expo-av').Audio; } catch (e) { console.warn('expo-a
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, StatusColors } from '../../constants/colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 import { api, getLeadDetailFromSupabase } from '../../lib/api';
@@ -396,7 +396,7 @@ function InfoRow({ icon, label, value, isLast }: { icon: IoniconsName; label: st
 // ── Main Component ───────────────────────────────────────────
 
 export default function LeadDetailScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();

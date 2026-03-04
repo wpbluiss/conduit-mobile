@@ -17,7 +17,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Colors, StatusColors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
@@ -213,7 +213,7 @@ function FilterPill({
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function CallsScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { leads, isRefreshing, fetchLeads, refresh } = useLeadsStore();

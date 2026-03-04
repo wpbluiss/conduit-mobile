@@ -2,13 +2,13 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, withDelay, interpolate } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { BorderRadius, Spacing } from '../../constants/layout';
 
 interface GlowCardProps { children: React.ReactNode; style?: ViewStyle; glowColor?: string; glowIntensity?: 'subtle' | 'medium' | 'strong'; animated?: boolean; delay?: number; }
 
 export function GlowCard({ children, style, glowColor = Colors.electric, glowIntensity = 'subtle', animated = true, delay = 0 }: GlowCardProps) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const glow = useSharedValue(0);
   React.useEffect(() => {
     if (animated) glow.value = withDelay(delay, withRepeat(withTiming(1, { duration: 2000 }), -1, true));

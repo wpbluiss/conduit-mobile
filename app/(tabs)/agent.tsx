@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Button } from '../../components/ui/Button';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Colors } from '../../constants/colors';
 import { TextStyles, Fonts, TypeScale } from '../../constants/typography';
 import { ScreenPadding, Spacing, BorderRadius } from '../../constants/layout';
@@ -628,7 +628,7 @@ function AddFAQModal({
 // ── Main Screen ──────────────────────────────────────────────
 
 export default function AgentScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [config, setConfig] = useState<AgentConfig>(DEFAULT_CONFIG);

@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLeadsStore } from '../../store/leadsStore';
 import { useAuthStore } from '../../store/authStore';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Badge } from '../../components/ui/Badge';
 import { ShimmerSkeleton } from '../../components/ui/ShimmerSkeleton';
 import { ErrorToast } from '../../components/ui/ErrorToast';
@@ -120,7 +120,7 @@ function LeadCard({ lead, onPress }: {
   lead: { id: string; caller_name: string; caller_phone: string; summary: string; status: string; created_at: string };
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const borderColor = {
     new: colors.electric,
@@ -163,7 +163,7 @@ function LeadCard({ lead, onPress }: {
 function DashStatCard({ label, value, prefix, suffix, accentColor }: {
   label: string; value: number; prefix?: string; suffix?: string; accentColor: string;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const count = useCountUp(value, 1200);
 
   return (
@@ -186,7 +186,7 @@ function FeatureCard({ icon, title, subtitle, gradientColors, onPress }: {
   gradientColors: [string, string];
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
 
   return (
     <Pressable
@@ -232,7 +232,7 @@ function DashboardSkeleton() {
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const { user, isGuestMode } = useAuthStore();
   const {
     leads,

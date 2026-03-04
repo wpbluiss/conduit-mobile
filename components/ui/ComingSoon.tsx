@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { Spacing } from '../../constants/layout';
 
@@ -17,7 +17,7 @@ export function ComingSoon({
   title,
   subtitle = 'This feature is coming soon.',
 }: ComingSoonProps) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const router = useRouter();
 
   return (

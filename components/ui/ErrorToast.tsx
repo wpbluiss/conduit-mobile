@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -11,7 +11,7 @@ interface ErrorToastProps {
 }
 
 export function ErrorToast({ message, onDismiss }: ErrorToastProps) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const translateY = useRef(new Animated.Value(-100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 

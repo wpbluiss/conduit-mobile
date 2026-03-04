@@ -17,7 +17,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
 
@@ -25,7 +25,7 @@ const { width } = Dimensions.get('window');
 const TOTAL_STEPS = 4;
 
 export default function OnboardingScreen() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const router = useRouter();
   const { user } = useAuthStore();
   const [step, setStep] = useState(0);

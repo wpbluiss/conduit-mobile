@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { Spacing } from '../../constants/layout';
 
 export function DemoModeBadge() {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
 
   return (
     <View style={[styles.badge, { backgroundColor: colors.warningGlow, borderColor: colors.warning }]}>

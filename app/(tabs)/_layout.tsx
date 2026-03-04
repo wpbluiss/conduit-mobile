@@ -4,7 +4,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { useAuthStore } from '../../store/authStore';
 import { DemoModeBadge } from '../../components/ui/DemoModeBadge';
 import { Fonts } from '../../constants/typography';
@@ -27,25 +27,25 @@ function TabIcon({ name, focused, color, colors }: { name: keyof typeof Ionicons
 }
 
 export default function TabLayout() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const { isGuestMode } = useAuthStore();
   return (
-    <View style={{ flex: 1 }}>
-    {isGuestMode && <DemoModeBadge />}
-    <Tabs screenOptions={{
-      headerShown: false, tabBarActiveTintColor: colors.electric, tabBarInactiveTintColor: colors.textMuted,
-      tabBarLabelStyle: { ...Fonts.bodyMedium, fontSize: TB.labelSize, marginTop: -2 },
-      tabBarStyle: { backgroundColor: Platform.OS === 'ios' ? (isDark ? 'rgba(10, 15, 30, 0.92)' : 'rgba(255, 255, 255, 0.95)') : colors.bgPrimary, borderTopColor: colors.border, borderTopWidth: 1, height: TB.height + (Platform.OS === 'ios' ? 20 : 0), paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 24 : 8 },
-    }} screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}>
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} color={color} colors={colors} /> }} />
-      <Tabs.Screen name="agent" options={{ title: 'AI Agent', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'hardware-chip' : 'hardware-chip-outline'} focused={focused} color={color} colors={colors} /> }} />
-      <Tabs.Screen name="calls" options={{ title: 'Leads', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'call' : 'call-outline'} focused={focused} color={color} colors={colors} /> }} />
-      <Tabs.Screen name="messages" options={{ title: 'Messages', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} focused={focused} color={color} colors={colors} /> }} />
-      <Tabs.Screen name="analytics" options={{ title: 'Analytics', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} focused={focused} color={color} colors={colors} /> }} />
-      <Tabs.Screen name="affiliates" options={{ title: 'Referrals', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'people' : 'people-outline'} focused={focused} color={color} colors={colors} /> }} />
-      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'settings' : 'settings-outline'} focused={focused} color={color} colors={colors} /> }} />
-    </Tabs>
-    </View>
+    <>
+      {isGuestMode && <DemoModeBadge />}
+      <Tabs screenOptions={{
+        headerShown: false, tabBarActiveTintColor: colors.electric, tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: { ...Fonts.bodyMedium, fontSize: TB.labelSize, marginTop: -2 },
+        tabBarStyle: { backgroundColor: Platform.OS === 'ios' ? (isDark ? 'rgba(10, 15, 30, 0.92)' : 'rgba(255, 255, 255, 0.95)') : colors.bgPrimary, borderTopColor: colors.border, borderTopWidth: 1, height: TB.height + (Platform.OS === 'ios' ? 20 : 0), paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 24 : 8 },
+      }} screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}>
+        <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} color={color} colors={colors} /> }} />
+        <Tabs.Screen name="agent" options={{ title: 'AI Agent', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'hardware-chip' : 'hardware-chip-outline'} focused={focused} color={color} colors={colors} /> }} />
+        <Tabs.Screen name="calls" options={{ title: 'Leads', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'call' : 'call-outline'} focused={focused} color={color} colors={colors} /> }} />
+        <Tabs.Screen name="messages" options={{ title: 'Messages', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'chatbubbles' : 'chatbubbles-outline'} focused={focused} color={color} colors={colors} /> }} />
+        <Tabs.Screen name="analytics" options={{ title: 'Analytics', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'stats-chart' : 'stats-chart-outline'} focused={focused} color={color} colors={colors} /> }} />
+        <Tabs.Screen name="affiliates" options={{ title: 'Referrals', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'people' : 'people-outline'} focused={focused} color={color} colors={colors} /> }} />
+        <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'settings' : 'settings-outline'} focused={focused} color={color} colors={colors} /> }} />
+      </Tabs>
+    </>
   );
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { Spacing } from '../../constants/layout';
 
@@ -20,7 +20,7 @@ export function EmptyState({
   ctaLabel,
   onCtaPress,
 }: EmptyStateProps) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
 
   return (
     <View style={styles.container}>

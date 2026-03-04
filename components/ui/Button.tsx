@@ -4,7 +4,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { BorderRadius, Spacing } from '../../constants/layout';
 import { Springs } from '../../constants/animations';
@@ -15,7 +15,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 interface ButtonProps { title: string; onPress: () => void; variant?: Variant; size?: 'sm' | 'md' | 'lg'; loading?: boolean; disabled?: boolean; icon?: React.ReactNode; style?: ViewStyle; textStyle?: TextStyle; fullWidth?: boolean; }
 
 export function Button({ title, onPress, variant = 'primary', size = 'md', loading = false, disabled = false, icon, style, textStyle, fullWidth = false }: ButtonProps) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const scale = useSharedValue(1);
   const aStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const pressIn = () => { scale.value = withSpring(0.96, Springs.snappy); };

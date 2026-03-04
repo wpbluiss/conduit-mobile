@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   interpolate,
 } from 'react-native-reanimated';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { BorderRadius } from '../../constants/layout';
 
 interface ShimmerSkeletonProps {
@@ -23,7 +23,7 @@ export function ShimmerSkeleton({
   borderRadius = BorderRadius.md,
   style,
 }: ShimmerSkeletonProps) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const shimmer = useSharedValue(0);
 
   useEffect(() => {

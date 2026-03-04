@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors, StatusColors, StatusType } from '../../constants/colors';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale } from '../../constants/typography';
 import { BorderRadius, Spacing } from '../../constants/layout';
 
 const labels: Record<StatusType, string> = { new: 'New', contacted: 'Contacted', booked: 'Booked', lost: 'Lost', active: 'Active', inactive: 'Inactive' };
 
 export function Badge({ status, label, size = 'sm' }: { status: StatusType; label?: string; size?: 'sm' | 'md' }) {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const color = StatusColors[status];
   const sm = size === 'sm';
   return (

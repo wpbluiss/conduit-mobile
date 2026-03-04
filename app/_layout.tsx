@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from '@expo-google-fonts/outfit';
 import { JetBrainsMono_400Regular, JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import { useAuthStore } from '../store/authStore';
-import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { ThemeProvider, useAppTheme } from '../contexts/ThemeContext';
 import { registerForPushNotifications, parseNotificationData, getNavigationTarget, clearBadgeCount, subscribeToNewCalls } from '../lib/notifications';
 import { NotificationBanner, type BannerData } from '../components/ui/NotificationBanner';
 import { useLeadsStore } from '../store/leadsStore';
@@ -24,7 +24,7 @@ export default function RootLayout() {
 
 function RootLayoutInner() {
   const { initialize, isLoading, isAuthenticated, isGuestMode, user } = useAuthStore();
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const segments = useSegments();
   const router = useRouter();
 

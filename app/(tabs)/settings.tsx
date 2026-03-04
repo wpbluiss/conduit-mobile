@@ -25,7 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/authStore';
 import { useLeadsStore } from '../../store/leadsStore';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useAppTheme } from '../../contexts/ThemeContext';
 import { TextStyles, Fonts, TypeScale } from '../../constants/typography';
 import { ScreenPadding, Spacing, BorderRadius } from '../../constants/layout';
 import { api } from '../../lib/api';
@@ -64,7 +64,7 @@ const PLAN_PRICES: Record<string, string> = {
 // ── Shimmer Overlay ─────────────────────────────────────────
 
 function ShimmerOverlay() {
-  const { colors, isDark } = useTheme();
+  const { colors, isDark } = useAppTheme();
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(
@@ -99,7 +99,7 @@ function ShimmerOverlay() {
 // ── Pulsing Footer ──────────────────────────────────────────
 
 function PulsingFooter() {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const pulse = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     Animated.loop(
@@ -134,7 +134,7 @@ function SectionHeader({
   onPress: () => void;
   badge?: string;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const color = iconColor || colors.electric;
 
   return (
@@ -180,7 +180,7 @@ function Row({
   isLast?: boolean;
   danger?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -242,7 +242,7 @@ function EditableRow({
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   isLast?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -317,7 +317,7 @@ function ToggleRow({
   onToggle: (v: boolean) => void;
   isLast?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   return (
     <View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
       <View style={[st.rowIconWrap, { backgroundColor: `${iconColor || colors.electric}15` }]}>
@@ -356,7 +356,7 @@ function IntegrationRow({
   onToggle: () => void;
   isLast?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   return (
@@ -393,7 +393,7 @@ function IntegrationRow({
 // ── Invoice Row ─────────────────────────────────────────────
 
 function InvoiceRow({ invoice, isLast }: { invoice: Invoice; isLast?: boolean }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const statusColor = invoice.status === 'paid' ? colors.success : invoice.status === 'pending' ? colors.warning : colors.danger;
   return (
     <View style={[st.row, !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
@@ -417,7 +417,7 @@ function InvoiceRow({ invoice, isLast }: { invoice: Invoice; isLast?: boolean })
 // ── Sign Out Button ─────────────────────────────────────────
 
 function SignOutButton({ onPress }: { onPress: () => void }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -466,7 +466,7 @@ function SignOutButton({ onPress }: { onPress: () => void }) {
 // ── Create Account Button (Guest Mode) ─────────────────────
 
 function CreateAccountButton({ onPress }: { onPress: () => void }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const glow = useRef(new Animated.Value(0)).current;
 
@@ -527,7 +527,7 @@ function ProfileCard({
   avatarUrl?: string | null;
   onAvatarPress?: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors } = useAppTheme();
   const initials = name
     .split(' ')
     .map((w) => w[0])
@@ -590,7 +590,7 @@ const MOCK_INVOICES: Invoice[] = [
 // ── Main Screen ─────────────────────────────────────────────
 
 export default function SettingsScreen() {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors, isDark, toggleTheme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signOut, user, isGuestMode, setGuestMode } = useAuthStore();
