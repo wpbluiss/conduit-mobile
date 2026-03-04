@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from '@expo-google-fonts/outfit';
 import { JetBrainsMono_400Regular, JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 import { useAuthStore } from '../store/authStore';
-import { Colors } from '../constants/colors';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { registerForPushNotifications, parseNotificationData, getNavigationTarget, clearBadgeCount, subscribeToNewCalls } from '../lib/notifications';
 import { NotificationBanner, type BannerData } from '../components/ui/NotificationBanner';
 import { useLeadsStore } from '../store/leadsStore';
@@ -15,7 +15,16 @@ import { useLeadsStore } from '../store/leadsStore';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
+  );
+}
+
+function RootLayoutInner() {
   const { initialize, isLoading, isAuthenticated, isGuestMode, user } = useAuthStore();
+  const { colors, isDark } = useTheme();
   const segments = useSegments();
   const router = useRouter();
 
@@ -196,8 +205,8 @@ export default function RootLayout() {
   if (isLoading || hasSeenWelcome === null || !fontsLoaded) return null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.bgVoid }}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.bgVoid} />
+    <View style={{ flex: 1, backgroundColor: colors.bgVoid }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgVoid} />
       <Slot />
       <NotificationBanner
         data={bannerData}
