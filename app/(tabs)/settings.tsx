@@ -34,7 +34,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const APP_VERSION = '1.0.0';
 const BUILD_NUMBER = '42';
 const SUPPORT_EMAIL = 'support@conduitai.io';
-const SUPPORT_PHONE = '18005551234';
+const SUPPORT_PHONE = '15614464520';
 const TERMS_URL = 'https://www.conduitai.io/terms';
 const PRIVACY_URL = 'https://www.conduitai.io/privacy';
 const FAQ_URL = 'https://www.conduitai.io/faq';
@@ -53,7 +53,7 @@ const PLAN_LABELS: Record<string, string> = {
 
 const PLAN_PRICES: Record<string, string> = {
   free: '$0',
-  solo: '$49',
+  solo: '$39',
   business: '$99',
   professional: '$199',
   enterprise: '$499',
@@ -830,7 +830,7 @@ export default function SettingsScreen() {
                   icon="diamond-outline"
                   iconColor={Colors.cyan}
                   label="Current Plan"
-                  value={`${PLAN_LABELS[userPlan] || 'Solo Operator'} - ${PLAN_PRICES[userPlan] || '$49'}/mo`}
+                  value={`${PLAN_LABELS[userPlan] || 'Solo Operator'} - ${PLAN_PRICES[userPlan] || '$39'}/mo`}
                 />
                 <Row
                   icon="calendar-outline"
@@ -1114,7 +1114,7 @@ export default function SettingsScreen() {
                   icon="call-outline"
                   iconColor={Colors.warning}
                   label="Call Support"
-                  value="1-800-555-1234"
+                  value="561-446-4520"
                   onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
                 />
                 <Row

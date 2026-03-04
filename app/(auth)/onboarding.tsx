@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -146,9 +147,10 @@ function StepWelcome({ user }: { user: any }) {
 
   return (
     <View style={st.stepCenter}>
-      <View style={st.heroIcon}>
-        <Ionicons name="flash" size={48} color={Colors.electric} />
-      </View>
+      <Image
+        source={require('../../assets/images/icon.png')}
+        style={st.heroIcon}
+      />
       <Text style={st.heroTitle}>Welcome, {name}!</Text>
       <Text style={st.heroSubtitle}>
         Conduit AI is your intelligent call handling assistant. We'll answer your

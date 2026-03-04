@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  Image,
 } from 'react-native';
 import Animated, {
   FadeInDown,
@@ -129,9 +130,10 @@ export default function SignUpScreen() {
           <Pressable onPress={() => router.back()} style={st.backBtn}>
             <Ionicons name="arrow-back" size={22} color={Colors.textSecondary} />
           </Pressable>
-          <View style={st.logoIcon}>
-            <Ionicons name="flash" size={28} color={Colors.electric} />
-          </View>
+          <Image
+            source={require('../../assets/images/icon.png')}
+            style={st.logoIcon}
+          />
           <Text style={st.title}>Start your free trial</Text>
           <Text style={st.subtitle}>14 days free · No credit card required</Text>
         </Animated.View>

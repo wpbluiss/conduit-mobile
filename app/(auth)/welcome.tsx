@@ -7,6 +7,7 @@ import {
   Dimensions,
   Pressable,
   Animated,
+  Image,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -257,14 +258,10 @@ export default function WelcomeScreen() {
         <View style={st.slide}>
           <View style={st.slideContent}>
             <View style={st.logoWrap}>
-              <LinearGradient
-                colors={['#0EA5E9', '#3B82F6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+              <Image
+                source={require('../../assets/images/icon.png')}
                 style={st.logoBg}
-              >
-                <Ionicons name="flash" size={40} color="#fff" />
-              </LinearGradient>
+              />
             </View>
             <Animated.View style={entranceStyle(0, 'title')}>
               <Text style={st.heroTitle}>Never Miss{'\n'}Another Lead</Text>
@@ -579,14 +576,10 @@ export default function WelcomeScreen() {
           <View style={[st.slideContent, st.ctaSlide]}>
             <Animated.View style={entranceStyle(4, 'visual')}>
               <View style={st.ctaLogoWrap}>
-                <LinearGradient
-                  colors={['#0EA5E9', '#3B82F6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                <Image
+                  source={require('../../assets/images/icon.png')}
                   style={st.ctaLogoBg}
-                >
-                  <Ionicons name="flash" size={36} color="#fff" />
-                </LinearGradient>
+                />
               </View>
             </Animated.View>
             <Animated.View style={entranceStyle(4, 'title')}>

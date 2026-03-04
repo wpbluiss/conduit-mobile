@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Colors } from '../../constants/colors';
@@ -186,14 +187,12 @@ function AnimatedLogo({ fadeIn }: { fadeIn: Animated.Value }) {
             { opacity: glowOpacity, transform: [{ scale: glowScale }] },
           ]}
         />
-        <LinearGradient
-          colors={['#0EA5E9', '#0284C7']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={st.logoIcon}
-        >
-          <Ionicons name="flash" size={42} color="#fff" />
-        </LinearGradient>
+        <View style={st.logoIcon}>
+          <Image
+            source={require('../../assets/images/icon.png')}
+            style={{ width: 80, height: 80, borderRadius: 26 }}
+          />
+        </View>
       </View>
       <Text style={st.logoText}>Conduit AI</Text>
     </Animated.View>
@@ -594,8 +593,7 @@ const st = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: Colors.electric,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
