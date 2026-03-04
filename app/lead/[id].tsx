@@ -15,9 +15,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-// expo-av crashes in Expo Go — load dynamically
-let AudioModule: any = null;
-try { AudioModule = require('expo-av').Audio; } catch (e) { console.warn('expo-av not available'); }
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
 import { Colors, StatusColors } from '../../constants/colors';
@@ -247,124 +244,34 @@ function ChatBubble({
 // ── Audio Player ─────────────────────────────────────────────
 
 function AudioPlayer({ recordingUrl }: { recordingUrl: string }) {
-  const [sound, setSound] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
   const scale = useRef(new Animated.Value(1)).current;
-  const pulse = useRef(new Animated.Value(1)).current;
-  const pulseAnim = useRef<Animated.CompositeAnimation | null>(null);
 
-  useEffect(() => {
-    return () => {
-      sound?.unloadAsync();
-    };
-  }, [sound]);
-
-  useEffect(() => {
-    if (isPlaying) {
-      pulseAnim.current = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulse, { toValue: 1.1, duration: 600, useNativeDriver: true }),
-          Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
-        ])
-      );
-      pulseAnim.current.start();
-    } else {
-      pulseAnim.current?.stop();
-      pulse.setValue(1);
-    }
-  }, [isPlaying]);
-
-  const handlePlayPause = async () => {
-    if (isLoading) return;
-
-    // expo-av not available (Expo Go) — fall back to opening URL
-    if (!AudioModule) {
-      Linking.openURL(recordingUrl);
-      return;
-    }
-
-    if (sound) {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await AudioModule.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound: newSound } = await AudioModule.Sound.createAsync(
-        { uri: recordingUrl },
-        { shouldPlay: true },
-        (status: any) => {
-          if (status.isLoaded) {
-            setPosition(status.positionMillis);
-            setDuration(status.durationMillis || 0);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setPosition(0);
-            }
-          }
-        }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
-    } catch (err) {
-      Alert.alert('Playback Error', 'Could not play this recording.');
-    }
-    setIsLoading(false);
+  const handlePlay = () => {
+    Linking.openURL(recordingUrl);
   };
-
-  const formatMs = (ms: number) => {
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    return `${m}:${String(s % 60).padStart(2, '0')}`;
-  };
-
-  const progress = duration > 0 ? position / duration : 0;
 
   return (
     <Pressable
       onPressIn={() => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, friction: 8 }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
-      onPress={handlePlayPause}
+      onPress={handlePlay}
     >
       <Animated.View style={[st.recordingCard, { transform: [{ scale }] }]}>
         <ShimmerOverlay />
         <View style={st.recordingLeft}>
-          <Animated.View style={{ transform: [{ scale: pulse }] }}>
-            <LinearGradient
-              colors={Colors.gradientElectric}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={st.recordingIcon}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name={isPlaying ? 'pause' : 'play'} size={22} color="#fff" style={!isPlaying ? { marginLeft: 2 } : undefined} />
-              )}
-            </LinearGradient>
-          </Animated.View>
+          <LinearGradient
+            colors={Colors.gradientElectric}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={st.recordingIcon}
+          >
+            <Ionicons name="play" size={22} color="#fff" style={{ marginLeft: 2 }} />
+          </LinearGradient>
           <View>
             <Text style={st.recordingTitle}>Call Recording</Text>
-            <Text style={st.recordingSub}>
-              {duration > 0 ? `${formatMs(position)} / ${formatMs(duration)}` : 'Tap to play'}
-            </Text>
+            <Text style={st.recordingSub}>Tap to listen</Text>
           </View>
         </View>
-        {duration > 0 && (
-          <View style={st.progressBar}>
-            <View style={[st.progressFill, { width: `${progress * 100}%` }]} />
-          </View>
-        )}
       </Animated.View>
     </Pressable>
   );
