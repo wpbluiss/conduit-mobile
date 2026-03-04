@@ -16,8 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLeadsStore } from '../../store/leadsStore';
 import { useAuthStore } from '../../store/authStore';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Badge } from '../../components/ui/Badge';
-import { Colors, StatusColors } from '../../constants/colors';
+import { ShimmerSkeleton } from '../../components/ui/ShimmerSkeleton';
+import { StatusColors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 
@@ -38,13 +40,6 @@ function getTimeAgo(d: string) {
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
 }
-
-const STATUS_BORDER: Record<string, string> = {
-  new: Colors.electric,
-  contacted: StatusColors.contacted,
-  booked: Colors.success,
-  lost: Colors.danger,
-};
 
 // ── Animated Count-Up ────────────────────────────────────────
 
@@ -68,41 +63,9 @@ function useCountUp(target: number, duration = 1000) {
   return display;
 }
 
-// ── Shimmer Effect ───────────────────────────────────────────
-
-function ShimmerOverlay() {
-  const shimmer = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 0, useNativeDriver: true }),
-        Animated.delay(3000),
-      ])
-    ).start();
-  }, []);
-
-  const translateX = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-SCREEN_W, SCREEN_W],
-  });
-
-  return (
-    <Animated.View style={[st.shimmer, { transform: [{ translateX }] }]}>
-      <LinearGradient
-        colors={['transparent', 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)', 'transparent']}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </Animated.View>
-  );
-}
-
 // ── Waveform Bars ────────────────────────────────────────────
 
-function WaveformBars({ active }: { active: boolean }) {
+function WaveformBars({ active, successColor, mutedColor }: { active: boolean; successColor: string; mutedColor: string }) {
   const bars = useRef(
     Array.from({ length: 5 }, () => new Animated.Value(0))
   ).current;
@@ -117,16 +80,8 @@ function WaveformBars({ active }: { active: boolean }) {
     const anims = bars.map((bar, i) =>
       Animated.loop(
         Animated.sequence([
-          Animated.timing(bar, {
-            toValue: 1,
-            duration: 400 + i * 80,
-            useNativeDriver: true,
-          }),
-          Animated.timing(bar, {
-            toValue: 0,
-            duration: 400 + i * 80,
-            useNativeDriver: true,
-          }),
+          Animated.timing(bar, { toValue: 1, duration: 400 + i * 80, useNativeDriver: true }),
+          Animated.timing(bar, { toValue: 0, duration: 400 + i * 80, useNativeDriver: true }),
         ])
       )
     );
@@ -143,15 +98,13 @@ function WaveformBars({ active }: { active: boolean }) {
           style={[
             st.waveBar,
             {
-              backgroundColor: active ? Colors.success : Colors.textMuted,
-              transform: [
-                {
-                  scaleY: bar.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.3, heights[i]],
-                  }),
-                },
-              ],
+              backgroundColor: active ? successColor : mutedColor,
+              transform: [{
+                scaleY: bar.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.3, heights[i]],
+                }),
+              }],
             },
           ]}
         />
@@ -160,52 +113,41 @@ function WaveformBars({ active }: { active: boolean }) {
   );
 }
 
-// ── Pressable Lead Card ──────────────────────────────────────
+// ── Lead Card ──────────────────────────────────────────────
 
-function LeadCard({
-  lead,
-  onPress,
-}: {
+function LeadCard({ lead, onPress }: {
   lead: { id: string; caller_name: string; caller_phone: string; summary: string; status: string; created_at: string };
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
-  const borderColor = STATUS_BORDER[lead.status] || Colors.border;
+  const borderColor = {
+    new: colors.electric,
+    contacted: StatusColors.contacted,
+    booked: colors.success,
+    lost: colors.danger,
+  }[lead.status] || colors.border;
 
   return (
     <Pressable
-      onPressIn={() =>
-        Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start()
-      }
-      onPressOut={() =>
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()
-      }
+      onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, friction: 8 }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 8 }).start()}
       onPress={onPress}
     >
-      <Animated.View style={[st.leadCard, { transform: [{ scale }] }]}>
-        {/* Status accent border */}
+      <Animated.View style={[st.leadCard, { backgroundColor: colors.bgCard, borderColor: colors.border, transform: [{ scale }] }]}>
         <View style={[st.leadAccent, { backgroundColor: borderColor }]} />
         <View style={st.leadRow}>
-          <LinearGradient
-            colors={Colors.gradientElectric}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={st.leadAvatar}
-          >
+          <LinearGradient colors={colors.gradientElectric as any} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.leadAvatar}>
             <Text style={st.leadAvatarText}>{lead.caller_name.charAt(0)}</Text>
           </LinearGradient>
           <View style={st.leadInfo}>
             <View style={st.leadNameRow}>
-              <Text style={st.leadName} numberOfLines={1}>
-                {lead.caller_name}
-              </Text>
-              <Text style={st.leadTime}>{getTimeAgo(lead.created_at)}</Text>
+              <Text style={[st.leadName, { color: colors.textPrimary }]} numberOfLines={1}>{lead.caller_name}</Text>
+              <Text style={[st.leadTime, { color: colors.textMuted }]}>{getTimeAgo(lead.created_at)}</Text>
             </View>
-            <Text style={st.leadSummary} numberOfLines={1}>
-              {lead.summary}
-            </Text>
+            <Text style={[st.leadSummary, { color: colors.textSecondary }]} numberOfLines={1}>{lead.summary}</Text>
             <View style={st.leadBottom}>
-              <Text style={st.leadPhone}>{lead.caller_phone}</Text>
+              <Text style={[st.leadPhone, { color: colors.textMuted }]}>{lead.caller_phone}</Text>
               <Badge status={lead.status as any} size="sm" />
             </View>
           </View>
@@ -217,48 +159,70 @@ function LeadCard({
 
 // ── Stat Card ────────────────────────────────────────────────
 
-function StatCard({
-  label,
-  value,
-  prefix,
-  suffix,
-  gradientEnd,
-  borderColor,
-  accentColor,
-  trend,
-}: {
-  label: string;
-  value: number;
-  prefix?: string;
-  suffix?: string;
-  gradientEnd: string;
-  borderColor: string;
-  accentColor: string;
-  trend?: string;
+function DashStatCard({ label, value, prefix, suffix, accentColor }: {
+  label: string; value: number; prefix?: string; suffix?: string; accentColor: string;
 }) {
+  const { colors } = useTheme();
   const count = useCountUp(value, 1200);
 
   return (
-    <LinearGradient
-      colors={[Colors.bgCard, gradientEnd]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={[st.statCard, { borderColor }]}
-    >
-      <ShimmerOverlay />
+    <View style={[st.statCard, { backgroundColor: colors.bgCard, borderColor: colors.borderLight }]}>
       <View style={[st.statAccent, { backgroundColor: accentColor }]} />
-      <Text style={st.statLabel}>{label}</Text>
-      <Text style={st.statValue}>
-        {prefix}
-        {count.toLocaleString()}
-        {suffix}
+      <Text style={[st.statLabel, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[st.statValue, { color: colors.textPrimary }]}>
+        {prefix}{count.toLocaleString()}{suffix}
       </Text>
-      {trend && (
-        <View style={[st.trendBadge, { backgroundColor: Colors.successGlow }]}>
-          <Text style={[st.trendText, { color: Colors.success }]}>{trend}</Text>
+    </View>
+  );
+}
+
+// ── Feature Card ─────────────────────────────────────────────
+
+function FeatureCard({ icon, title, subtitle, gradientColors, onPress }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  gradientColors: [string, string];
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [st.featureCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+    >
+      <View style={st.featureRow}>
+        <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.featureIcon}>
+          <Ionicons name={icon} size={20} color="#fff" />
+        </LinearGradient>
+        <View style={st.featureTextCol}>
+          <Text style={[st.featureTitle, { color: colors.textPrimary }]}>{title}</Text>
+          <Text style={[st.featureSub, { color: colors.textMuted }]}>{subtitle}</Text>
         </View>
-      )}
-    </LinearGradient>
+        <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+      </View>
+    </Pressable>
+  );
+}
+
+// ── Loading Skeleton ─────────────────────────────────────────
+
+function DashboardSkeleton() {
+  return (
+    <View style={{ gap: Spacing.md, paddingHorizontal: ScreenPadding.horizontal }}>
+      <ShimmerSkeleton width="100%" height={80} borderRadius={BorderRadius.xl} />
+      <ShimmerSkeleton width="100%" height={60} />
+      <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+        <ShimmerSkeleton width="33%" height={104} />
+        <ShimmerSkeleton width="33%" height={104} />
+        <ShimmerSkeleton width="33%" height={104} />
+      </View>
+      <ShimmerSkeleton width="100%" height={60} />
+      <ShimmerSkeleton width="100%" height={60} />
+      <ShimmerSkeleton width="100%" height={60} />
+      <ShimmerSkeleton width="100%" height={60} />
+    </View>
   );
 }
 
@@ -267,11 +231,13 @@ function StatCard({
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
+  const { colors, isDark } = useTheme();
+  const { user, isGuestMode } = useAuthStore();
   const {
     leads,
     dashboardStats,
     agentStatus,
+    isLoading,
     isRefreshing,
     fetchLeads,
     fetchDashboard,
@@ -279,7 +245,6 @@ export default function DashboardScreen() {
     refresh,
   } = useLeadsStore();
 
-  // Agent glow animation (RN Animated)
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -303,9 +268,9 @@ export default function DashboardScreen() {
   const recentLeads = leads.slice(0, 5);
   const meta = user?.user_metadata;
   const name = meta?.owner_name || meta?.full_name || meta?.name || meta?.display_name || '';
-  const firstName = name.split(' ')[0] || 'there';
-  const biz = meta?.business_name || '';
-  const active = agentStatus?.is_active ?? true;
+  const firstName = isGuestMode ? 'Guest' : (name.split(' ')[0] || 'there');
+  const biz = isGuestMode ? 'Demo Mode' : (meta?.business_name || '');
+  const active = agentStatus?.is_active ?? false;
 
   const agentBorderColor = active
     ? glowAnim.interpolate({
@@ -318,11 +283,21 @@ export default function DashboardScreen() {
     ? glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] })
     : 0;
 
+  // Show skeleton only during initial load
+  if (isLoading && !dashboardStats) {
+    return (
+      <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
+        <View style={{ paddingTop: insets.top + Spacing.base }}>
+          <DashboardSkeleton />
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={st.root}>
-      {/* Gradient mesh background */}
+    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
-        colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+        colors={[colors.bgPrimary, colors.bgPrimary, isDark ? 'rgba(14, 165, 233, 0.03)' : 'rgba(2, 132, 199, 0.03)']}
         locations={[0, 0.6, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -332,78 +307,40 @@ export default function DashboardScreen() {
         contentContainerStyle={st.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={Colors.electric} />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.electric} />
         }
       >
-        {/* ── Glassmorphism Header ── */}
-        <View style={st.headerOuter}>
-          <BlurView intensity={25} tint="dark" style={st.headerBlur}>
-            <View style={st.headerInner}>
+        {/* ── Header ── */}
+        <View style={[st.headerOuter, { borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+          <BlurView intensity={25} tint={isDark ? 'dark' : 'light'} style={st.headerBlur}>
+            <View style={[st.headerInner, { backgroundColor: isDark ? 'rgba(17,24,39,0.65)' : 'rgba(241,245,249,0.85)' }]}>
               <View style={st.headerLeft}>
-                <Text style={st.greeting}>
+                <Text style={[TextStyles.h2, { color: colors.textPrimary }]}>
                   {getGreeting()}, {firstName}
                 </Text>
-                {biz ? <Text style={st.bizName}>{biz}</Text> : null}
+                {biz ? <Text style={[st.bizName, { color: colors.textMuted }]}>{biz}</Text> : null}
               </View>
-              <View style={st.headerRight}>
-                <LinearGradient
-                  colors={['#0EA5E9', '#06B6D4']}
-                  style={st.headerAvatar}
-                >
-                  <Text style={st.headerAvatarText}>
-                    {firstName.charAt(0).toUpperCase()}
-                  </Text>
-                </LinearGradient>
-              </View>
+              <LinearGradient colors={colors.gradientElectric as any} style={st.headerAvatar}>
+                <Text style={st.headerAvatarText}>{firstName.charAt(0).toUpperCase()}</Text>
+              </LinearGradient>
             </View>
           </BlurView>
         </View>
 
-        {/* ── Agent Status Card ── */}
-        <Animated.View
-          style={[
-            st.agentCard,
-            {
-              borderColor: agentBorderColor,
-              shadowOpacity: agentShadowOpacity,
-            },
-          ]}
-        >
+        {/* ── Agent Status ── */}
+        <Animated.View style={[st.agentCard, { backgroundColor: colors.bgCard, borderColor: agentBorderColor, shadowOpacity: agentShadowOpacity, shadowColor: colors.success }]}>
           <View style={st.agentRow}>
             <View style={st.agentLeft}>
-              <View
-                style={[
-                  st.agentDot,
-                  { backgroundColor: active ? Colors.success : Colors.danger },
-                ]}
-              />
-              <View style={st.agentTextCol}>
-                <Text style={st.agentTitle}>
-                  AI Agent: {active ? 'Active' : 'Inactive'}
-                </Text>
-                <Text style={st.agentSub}>
-                  {active ? 'Answering calls 24/7' : 'Agent is paused'}
-                </Text>
+              <View style={[st.agentDot, { backgroundColor: active ? colors.success : colors.danger }]} />
+              <View>
+                <Text style={[st.agentTitle, { color: colors.textPrimary }]}>AI Agent: {active ? 'Active' : 'Inactive'}</Text>
+                <Text style={[st.agentSub, { color: colors.textMuted }]}>{active ? 'Answering calls 24/7' : 'Agent is paused'}</Text>
               </View>
             </View>
             <View style={st.agentRight}>
-              <WaveformBars active={active} />
-              <View
-                style={[
-                  st.statusPill,
-                  {
-                    backgroundColor: active ? Colors.successGlow : Colors.dangerGlow,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    st.statusPillText,
-                    { color: active ? Colors.success : Colors.danger },
-                  ]}
-                >
-                  {active ? 'LIVE' : 'OFF'}
-                </Text>
+              <WaveformBars active={active} successColor={colors.success} mutedColor={colors.textMuted} />
+              <View style={[st.statusPill, { backgroundColor: active ? colors.successGlow : colors.dangerGlow }]}>
+                <Text style={[st.statusPillText, { color: active ? colors.success : colors.danger }]}>{active ? 'LIVE' : 'OFF'}</Text>
               </View>
             </View>
           </View>
@@ -411,149 +348,63 @@ export default function DashboardScreen() {
 
         {/* ── Stat Cards ── */}
         <View style={st.statsRow}>
-          <StatCard
-            label="TODAY"
-            value={stats.leads_today}
-            gradientEnd="rgba(14, 165, 233, 0.12)"
-            borderColor="rgba(14, 165, 233, 0.15)"
-            accentColor={Colors.electric}
-          />
-          <StatCard
-            label="THIS MONTH"
-            value={stats.leads_this_month}
-            gradientEnd="rgba(16, 185, 129, 0.12)"
-            borderColor="rgba(16, 185, 129, 0.15)"
-            accentColor={Colors.success}
-          />
-          <StatCard
-            label="CAPTURE"
-            value={stats.capture_rate}
-            suffix="%"
-            gradientEnd="rgba(6, 182, 212, 0.12)"
-            borderColor="rgba(6, 182, 212, 0.15)"
-            accentColor={Colors.cyan}
-          />
+          <DashStatCard label="TODAY" value={stats.leads_today} accentColor={colors.cyan} />
+          <DashStatCard label="THIS MONTH" value={stats.leads_this_month} accentColor={colors.success} />
+          <DashStatCard label="CAPTURE" value={stats.capture_rate} suffix="%" accentColor={colors.warning} />
         </View>
 
-        {/* ── Payments Card ── */}
-        <Pressable
+        {/* ── Feature Cards ── */}
+        <FeatureCard
+          icon="card-outline"
+          title="Payments & Deposits"
+          subtitle={stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} collected` : 'View payments'}
+          gradientColors={colors.gradientElectric as any}
           onPress={() => router.push('/payments')}
-          style={({ pressed }) => [st.paymentsCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <ShimmerOverlay />
-          <View style={st.paymentsRow}>
-            <LinearGradient
-              colors={Colors.gradientElectric}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={st.paymentsIcon}
-            >
-              <Ionicons name="card-outline" size={20} color="#fff" />
-            </LinearGradient>
-            <View style={st.paymentsTextCol}>
-              <Text style={st.paymentsTitle}>Payments & Deposits</Text>
-              <Text style={st.paymentsSub}>
-                ${stats.revenue_saved ? stats.revenue_saved.toLocaleString() : '0'} collected
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-          </View>
-        </Pressable>
-
-        {/* ── Calendar Card ── */}
-        <Pressable
+        />
+        <FeatureCard
+          icon="calendar-outline"
+          title="Calendar & Bookings"
+          subtitle={stats.leads_this_week ? `${stats.leads_this_week} this week` : 'View bookings'}
+          gradientColors={[colors.cyan, colors.electric]}
           onPress={() => router.push('/calendar')}
-          style={({ pressed }) => [st.calendarCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <ShimmerOverlay />
-          <View style={st.calendarRow}>
-            <LinearGradient
-              colors={[Colors.cyan, Colors.electric]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={st.calendarIcon}
-            >
-              <Ionicons name="calendar-outline" size={20} color="#fff" />
-            </LinearGradient>
-            <View style={st.calendarTextCol}>
-              <Text style={st.calendarTitle}>Calendar & Bookings</Text>
-              <Text style={st.calendarSub}>{stats.leads_this_week} this week</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-          </View>
-        </Pressable>
-
-        {/* ── Revenue Card ── */}
-        <Pressable
+        />
+        <FeatureCard
+          icon="trending-up"
+          title="Revenue Dashboard"
+          subtitle={stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} saved` : 'View revenue'}
+          gradientColors={[colors.success, colors.cyan]}
           onPress={() => router.push('/revenue')}
-          style={({ pressed }) => [st.revenueCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <ShimmerOverlay />
-          <View style={st.revenueRow}>
-            <LinearGradient
-              colors={[Colors.success, Colors.cyan]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={st.revenueIcon}
-            >
-              <Ionicons name="trending-up" size={20} color="#fff" />
-            </LinearGradient>
-            <View style={st.revenueTextCol}>
-              <Text style={st.revenueTitle}>Revenue Dashboard</Text>
-              <Text style={st.revenueSub}>
-                ${stats.revenue_saved ? stats.revenue_saved.toLocaleString() : '0'} saved
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-          </View>
-        </Pressable>
-
-        {/* ── Reviews & Reputation Card ── */}
-        <Pressable
+        />
+        <FeatureCard
+          icon="star"
+          title="Reviews & Reputation"
+          subtitle="Manage reviews"
+          gradientColors={[colors.warning, '#F97316']}
           onPress={() => router.push('/reviews')}
-          style={({ pressed }) => [st.reviewsCard, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-        >
-          <ShimmerOverlay />
-          <View style={st.reviewsRow}>
-            <LinearGradient
-              colors={['#F59E0B', '#F97316']}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={st.reviewsIcon}
-            >
-              <Ionicons name="star" size={20} color="#fff" />
-            </LinearGradient>
-            <View style={st.reviewsTextCol}>
-              <Text style={st.reviewsTitle}>Reviews & Reputation</Text>
-              <Text style={st.reviewsSub}>4.8 avg rating</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-          </View>
-        </Pressable>
+        />
 
-        {/* ── Recent Activity Header ── */}
+        {/* ── Recent Activity ── */}
         <View style={st.sectionHeader}>
           <View style={st.sectionLeft}>
-            <View style={st.sectionDot} />
-            <Text style={st.sectionTitle}>Recent Activity</Text>
+            <View style={[st.sectionDot, { backgroundColor: colors.electric }]} />
+            <Text style={[st.sectionTitle, { color: colors.textPrimary }]}>Recent Activity</Text>
           </View>
           <Pressable onPress={() => router.push('/(tabs)/calls')} hitSlop={8}>
-            <Text style={st.viewAll}>View All</Text>
+            <Text style={[st.viewAll, { color: colors.electric }]}>View All</Text>
           </Pressable>
         </View>
 
-        {/* ── Lead Cards ── */}
         {recentLeads.length === 0 ? (
           <View style={st.emptyWrap}>
-            <Ionicons name="call-outline" size={36} color={Colors.textMuted} />
-            <Text style={st.emptyTitle}>No leads yet</Text>
-            <Text style={st.emptyText}>
+            <Ionicons name="call-outline" size={36} color={colors.textMuted} />
+            <Text style={[st.emptyTitle, { color: colors.textSecondary }]}>No leads yet</Text>
+            <Text style={[st.emptyText, { color: colors.textMuted }]}>
               Leads will appear here as your AI agent handles calls
             </Text>
           </View>
         ) : (
           recentLeads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              onPress={() => router.push(`/lead/${lead.id}`)}
-            />
+            <LeadCard key={lead.id} lead={lead} onPress={() => router.push(`/lead/${lead.id}`)} />
           ))
         )}
 
@@ -566,103 +417,57 @@ export default function DashboardScreen() {
 // ── Styles ───────────────────────────────────────────────────
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bgPrimary },
+  root: { flex: 1 },
   container: { flex: 1 },
   scroll: { paddingHorizontal: ScreenPadding.horizontal, gap: Spacing.md },
 
-  /* ── Glassmorphism Header ── */
   headerOuter: {
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
     marginTop: Spacing.base,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 6,
   },
-  headerBlur: {
-    overflow: 'hidden',
-    borderRadius: BorderRadius.xl,
-  },
+  headerBlur: { overflow: 'hidden', borderRadius: BorderRadius.xl },
   headerInner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
-    backgroundColor: 'rgba(17, 24, 39, 0.65)',
   },
   headerLeft: { flex: 1 },
-  greeting: {
-    ...TextStyles.h2,
-    color: Colors.textPrimary,
-  },
-  bizName: {
-    ...Fonts.bodyMedium,
-    fontSize: TypeScale.bodySm,
-    color: Colors.textMuted,
-    marginTop: 3,
-  },
-  headerRight: {},
-  headerAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerAvatarText: {
-    ...Fonts.displayBold,
-    fontSize: TypeScale.h3,
-    color: '#fff',
-  },
+  bizName: { ...Fonts.bodyMedium, fontSize: TypeScale.bodySm, marginTop: 3 },
+  headerAvatar: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  headerAvatarText: { ...Fonts.displayBold, fontSize: TypeScale.h3, color: '#fff' },
 
-  /* ── Agent Status ── */
   agentCard: {
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     padding: Spacing.base,
-    shadowColor: Colors.success,
     shadowOffset: { width: 0, height: 0 },
     shadowRadius: 16,
     elevation: 4,
   },
-  agentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+  agentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   agentLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flex: 1 },
   agentDot: { width: 10, height: 10, borderRadius: 5 },
-  agentTextCol: {},
-  agentTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
-  agentSub: { ...Fonts.body, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 1 },
+  agentTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body },
+  agentSub: { ...Fonts.body, fontSize: TypeScale.caption, marginTop: 1 },
   agentRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   statusPill: { paddingHorizontal: Spacing.md, paddingVertical: 4, borderRadius: BorderRadius.full },
   statusPillText: { ...Fonts.monoBold, fontSize: TypeScale.tiny, letterSpacing: 1 },
 
-  /* ── Waveform ── */
-  waveWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    height: 22,
-  },
-  waveBar: {
-    width: 3,
-    height: 22,
-    borderRadius: 1.5,
-  },
+  waveWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 22 },
+  waveBar: { width: 3, height: 22, borderRadius: 1.5 },
 
-  /* ── Stat Cards ── */
   statsRow: { flexDirection: 'row', gap: Spacing.sm },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     padding: Spacing.md,
@@ -672,188 +477,53 @@ const st = StyleSheet.create({
   },
   statAccent: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    top: 0, left: 0, right: 0,
     height: 2,
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
   },
-  statLabel: {
-    ...Fonts.bodyMedium,
-    fontSize: TypeScale.tiny,
-    color: Colors.textMuted,
-    letterSpacing: 0.8,
-    marginBottom: Spacing.sm,
-  },
-  statValue: {
-    ...Fonts.monoBold,
-    fontSize: TypeScale.stat,
-    color: Colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  trendBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.xs,
-  },
-  trendText: { ...Fonts.mono, fontSize: TypeScale.tiny, fontWeight: '600' },
+  statLabel: { ...Fonts.bodyMedium, fontSize: TypeScale.tiny, letterSpacing: 0.8, marginBottom: Spacing.sm },
+  statValue: { ...Fonts.monoBold, fontSize: TypeScale.stat, letterSpacing: -0.5 },
 
-  /* ── Shimmer ── */
-  shimmer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: SCREEN_W * 0.6,
-    zIndex: 1,
-  },
-
-  /* ── Payments Card ── */
-  paymentsCard: {
-    backgroundColor: Colors.bgCard,
+  featureCard: {
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
     padding: Spacing.base,
     overflow: 'hidden',
   },
-  paymentsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  paymentsIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paymentsTextCol: { flex: 1 },
-  paymentsTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
-  paymentsSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  featureTextCol: { flex: 1 },
+  featureTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body },
+  featureSub: { ...Fonts.mono, fontSize: TypeScale.caption, marginTop: 2 },
 
-  /* ── Calendar Card ── */
-  calendarCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    overflow: 'hidden',
-  },
-  calendarRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  calendarIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calendarTextCol: { flex: 1 },
-  calendarTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
-  calendarSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
-
-  /* ── Revenue Card ── */
-  revenueCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    overflow: 'hidden',
-  },
-  revenueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  revenueIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  revenueTextCol: { flex: 1 },
-  revenueTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
-  revenueSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
-
-  /* ── Reviews Card ── */
-  reviewsCard: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.base,
-    overflow: 'hidden',
-  },
-  reviewsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  reviewsIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reviewsTextCol: { flex: 1 },
-  reviewsTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary },
-  reviewsSub: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted, marginTop: 2 },
-
-  /* ── Section Header ── */
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing.sm,
-  },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
   sectionLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  sectionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.electric,
-  },
-  sectionTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.h4, color: Colors.textPrimary },
-  viewAll: { ...Fonts.bodyMedium, fontSize: TypeScale.bodySm, color: Colors.electric },
+  sectionDot: { width: 6, height: 6, borderRadius: 3 },
+  sectionTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.h4 },
+  viewAll: { ...Fonts.bodyMedium, fontSize: TypeScale.bodySm },
 
-  /* ── Lead Cards ── */
   leadCard: {
-    backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
     paddingVertical: Spacing.md,
     paddingRight: Spacing.md,
     paddingLeft: Spacing.md + 4,
     overflow: 'hidden',
   },
-  leadAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 3,
-    borderTopLeftRadius: BorderRadius.lg,
-    borderBottomLeftRadius: BorderRadius.lg,
-  },
+  leadAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, borderTopLeftRadius: BorderRadius.lg, borderBottomLeftRadius: BorderRadius.lg },
   leadRow: { flexDirection: 'row', gap: Spacing.md },
-  leadAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  leadAvatar: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   leadAvatarText: { ...Fonts.displayBold, fontSize: TypeScale.h3, color: '#fff' },
   leadInfo: { flex: 1, gap: 3 },
   leadNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  leadName: { ...Fonts.bodySemibold, fontSize: TypeScale.body, color: Colors.textPrimary, flex: 1 },
-  leadTime: { ...Fonts.mono, fontSize: TypeScale.tiny, color: Colors.textMuted, marginLeft: Spacing.sm },
-  leadSummary: { ...Fonts.body, fontSize: TypeScale.bodySm, color: Colors.textSecondary },
+  leadName: { ...Fonts.bodySemibold, fontSize: TypeScale.body, flex: 1 },
+  leadTime: { ...Fonts.mono, fontSize: TypeScale.tiny, marginLeft: Spacing.sm },
+  leadSummary: { ...Fonts.body, fontSize: TypeScale.bodySm },
   leadBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  leadPhone: { ...Fonts.mono, fontSize: TypeScale.caption, color: Colors.textMuted },
+  leadPhone: { ...Fonts.mono, fontSize: TypeScale.caption },
 
-  /* ── Empty State ── */
-  emptyWrap: {
-    alignItems: 'center',
-    paddingVertical: Spacing['3xl'],
-    gap: Spacing.sm,
-  },
-  emptyTitle: { ...TextStyles.h3, color: Colors.textSecondary },
-  emptyText: { ...Fonts.body, fontSize: TypeScale.bodySm, color: Colors.textMuted, textAlign: 'center' },
+  emptyWrap: { alignItems: 'center', paddingVertical: Spacing['3xl'], gap: Spacing.sm },
+  emptyTitle: { ...TextStyles.h3 },
+  emptyText: { ...Fonts.body, fontSize: TypeScale.bodySm, textAlign: 'center' },
 });
