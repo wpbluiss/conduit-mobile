@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuthStore } from '../../store/authStore';
+import { DemoModeBadge } from '../../components/ui/DemoModeBadge';
 import { Fonts } from '../../constants/typography';
 import { TabBar as TB } from '../../constants/layout';
 import { Springs } from '../../constants/animations';
@@ -26,7 +28,10 @@ function TabIcon({ name, focused, color, colors }: { name: keyof typeof Ionicons
 
 export default function TabLayout() {
   const { colors, isDark } = useTheme();
+  const { isGuestMode } = useAuthStore();
   return (
+    <View style={{ flex: 1 }}>
+    {isGuestMode && <DemoModeBadge />}
     <Tabs screenOptions={{
       headerShown: false, tabBarActiveTintColor: colors.electric, tabBarInactiveTintColor: colors.textMuted,
       tabBarLabelStyle: { ...Fonts.bodyMedium, fontSize: TB.labelSize, marginTop: -2 },
@@ -40,6 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen name="affiliates" options={{ title: 'Referrals', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'people' : 'people-outline'} focused={focused} color={color} colors={colors} /> }} />
       <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'settings' : 'settings-outline'} focused={focused} color={color} colors={colors} /> }} />
     </Tabs>
+    </View>
   );
 }
 

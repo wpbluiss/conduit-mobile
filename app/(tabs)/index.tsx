@@ -371,28 +371,28 @@ export default function DashboardScreen() {
           title="Payments & Deposits"
           subtitle={stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} collected` : 'View payments'}
           gradientColors={colors.gradientElectric as any}
-          onPress={() => router.push('/payments')}
+          onPress={() => router.push('/payments' as any)}
         />
         <FeatureCard
           icon="calendar-outline"
           title="Calendar & Bookings"
           subtitle={stats.leads_this_week ? `${stats.leads_this_week} this week` : 'View bookings'}
           gradientColors={[colors.cyan, colors.electric]}
-          onPress={() => router.push('/calendar')}
+          onPress={() => router.push('/calendar' as any)}
         />
         <FeatureCard
           icon="trending-up"
           title="Revenue Dashboard"
           subtitle={stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} saved` : 'View revenue'}
           gradientColors={[colors.success, colors.cyan]}
-          onPress={() => router.push('/revenue')}
+          onPress={() => router.push('/revenue' as any)}
         />
         <FeatureCard
           icon="star"
           title="Reviews & Reputation"
           subtitle="Manage reviews"
           gradientColors={[colors.warning, '#F97316']}
-          onPress={() => router.push('/reviews')}
+          onPress={() => router.push('/reviews' as any)}
         />
 
         {/* ── Recent Activity ── */}
