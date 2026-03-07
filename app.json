@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "io.conduitai.app",
-      "buildNumber": "1",
+      "buildNumber": "10",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -29,7 +29,7 @@
         "backgroundColor": "#0a0f1e"
       },
       "package": "io.conduitai.app",
-      "versionCode": 1
+      "versionCode": 10
     },
     "plugins": [
       "expo-router",

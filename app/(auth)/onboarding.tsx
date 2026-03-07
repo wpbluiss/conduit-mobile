@@ -81,7 +81,7 @@ export default function OnboardingScreen() {
     outputRange: ['0%', '100%'],
   });
 
-  const assignedNumber = '(555) 012-3456';
+  const [assignedNumber, setAssignedNumber] = useState('Loading...');
 
   return (
     <View style={[st.container, { backgroundColor: colors.bgVoid }]}>
