@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -82,6 +82,31 @@ export default function OnboardingScreen() {
   });
 
   const [assignedNumber, setAssignedNumber] = useState('Loading...');
+
+  // Fetch the real Twilio number assigned to this client
+  useEffect(() => {
+    const fetchNumber = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('clients')
+        .select('twilio_phone_number')
+        .eq('user_id', user.id)
+        .single();
+      if (data?.twilio_phone_number) {
+        const raw = data.twilio_phone_number.replace(/\D/g, '');
+        if (raw.length === 11) {
+          setAssignedNumber(
+            `(${raw.slice(1, 4)}) ${raw.slice(4, 7)}-${raw.slice(7)}`
+          );
+        } else {
+          setAssignedNumber(data.twilio_phone_number);
+        }
+      } else {
+        setAssignedNumber('Check your email for your number');
+      }
+    };
+    fetchNumber();
+  }, [user?.id]);
 
   return (
     <View style={[st.container, { backgroundColor: colors.bgVoid }]}>

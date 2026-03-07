@@ -20,7 +20,8 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID for quick and secure login"
+        "NSFaceIDUsageDescription": "Use Face ID for quick and secure login",
+        "NSMicrophoneUsageDescription": "Conduit AI uses your microphone to enable voice commands and call monitoring features."
       }
     },
     "android": {

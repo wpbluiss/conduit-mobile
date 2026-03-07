@@ -30,6 +30,7 @@ import { Colors } from '../../constants/colors';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/layout';
+import { AIConsentModal } from '../../components/ui/AIConsentModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,6 +58,7 @@ export default function SignUpScreen() {
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showConsent, setShowConsent] = useState(false);
 
   const glowP = useSharedValue(0);
   useState(() => {
@@ -95,6 +97,12 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     if (!validate()) return;
+    // Show AI data consent before creating account (Apple guideline 5.1.1/5.1.2)
+    setShowConsent(true);
+  };
+
+  const handleConsentAccept = async () => {
+    setShowConsent(false);
     try {
       await signUp(email.trim().toLowerCase(), password, {
         business_name: businessName.trim(),
@@ -102,10 +110,16 @@ export default function SignUpScreen() {
         phone: phone.replace(/\D/g, ''),
         business_type: businessType,
         onboarding_complete: false,
+        ai_data_consent: true,
+        ai_data_consent_date: new Date().toISOString(),
       });
     } catch (err: any) {
       Alert.alert('Sign Up Failed', err.message || 'Please try again.');
     }
+  };
+
+  const handleConsentDecline = () => {
+    setShowConsent(false);
   };
 
   return (
@@ -281,6 +295,11 @@ export default function SignUpScreen() {
           </Text>
         </Animated.View>
       </ScrollView>
+      <AIConsentModal
+        visible={showConsent}
+        onAccept={handleConsentAccept}
+        onDecline={handleConsentDecline}
+      />
     </KeyboardAvoidingView>
   );
 }
