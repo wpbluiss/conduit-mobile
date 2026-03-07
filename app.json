@@ -44,11 +44,13 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
-      }
+        "projectId": "9a547e37-6e21-4587-99f3-39d13c5ad6a2"
+      },
+      "router": {}
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "wpbluiss"
   }
 }

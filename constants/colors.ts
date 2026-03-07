@@ -14,6 +14,7 @@ export interface ThemeColors {
   electricBorder: string;
   cyan: string;
   cyanGlow: string;
+  premiumCyan: string;
 
   // Semantic
   success: string;
@@ -53,12 +54,13 @@ export const DarkColors: ThemeColors = {
   bgElevated: '#1a2235',
   bgInput: '#0f172a',
 
-  electric: '#0EA5E9',
+  electric: '#00D4FF',
   electricGlow: '#38BDF8',
-  electricMuted: 'rgba(14, 165, 233, 0.15)',
-  electricBorder: 'rgba(14, 165, 233, 0.12)',
+  electricMuted: 'rgba(0, 212, 255, 0.15)',
+  electricBorder: 'rgba(0, 212, 255, 0.12)',
   cyan: '#06B6D4',
   cyanGlow: 'rgba(6, 182, 212, 0.2)',
+  premiumCyan: '#00D4FF',
 
   success: '#10B981',
   successGlow: 'rgba(16, 185, 129, 0.15)',
@@ -72,15 +74,15 @@ export const DarkColors: ThemeColors = {
   textMuted: '#475569',
   textDisabled: '#334155',
 
-  border: 'rgba(148, 163, 184, 0.08)',
-  borderLight: 'rgba(148, 163, 184, 0.15)',
-  borderElectric: 'rgba(14, 165, 233, 0.25)',
+  border: 'rgba(255, 255, 255, 0.06)',
+  borderLight: 'rgba(255, 255, 255, 0.08)',
+  borderElectric: 'rgba(0, 212, 255, 0.25)',
 
-  gradientElectric: ['#0EA5E9', '#06B6D4'] as const,
-  gradientElectricDiag: ['#0EA5E9', '#3B82F6'] as const,
+  gradientElectric: ['#00D4FF', '#06B6D4'] as const,
+  gradientElectricDiag: ['#00D4FF', '#3B82F6'] as const,
   gradientDark: ['#0a0f1e', '#030712'] as const,
 
-  shadowElectric: 'rgba(14, 165, 233, 0.25)',
+  shadowElectric: 'rgba(0, 212, 255, 0.25)',
   shadowDark: 'rgba(0, 0, 0, 0.5)',
   overlay: 'rgba(3, 7, 18, 0.7)',
 };
@@ -99,6 +101,7 @@ export const LightColors: ThemeColors = {
   electricBorder: 'rgba(2, 132, 199, 0.15)',
   cyan: '#0891B2',
   cyanGlow: 'rgba(8, 145, 178, 0.12)',
+  premiumCyan: '#0891B2',
 
   success: '#059669',
   successGlow: 'rgba(5, 150, 105, 0.10)',
@@ -129,7 +132,7 @@ export const LightColors: ThemeColors = {
 export const Colors = DarkColors;
 
 export const StatusColors = {
-  new: DarkColors.electric,
+  new: DarkColors.premiumCyan,
   contacted: DarkColors.warning,
   booked: DarkColors.success,
   lost: DarkColors.danger,

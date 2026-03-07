@@ -551,7 +551,7 @@ function ProfileCard({
   });
 
   return (
-    <Animated.View style={[st.profileCard, { backgroundColor: colors.bgCard, borderColor }]}>
+    <Animated.View style={[st.profileCard, { backgroundColor: colors.bgInput, borderColor }]}>
       <ShimmerOverlay />
       <Pressable onPress={onAvatarPress} style={{ position: 'relative' }}>
         {avatarUrl ? (
@@ -706,8 +706,48 @@ export default function SettingsScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
-          router.replace('/(auth)/welcome' as any);
+          try {
+            // Clear all stores first
+            useLeadsStore.getState().reset?.();
+            
+            // Sign out from Supabase
+            await supabase.auth.signOut();
+            
+            // Clear auth store state
+            useAuthStore.setState({
+              user: null,
+              session: null,
+              isAuthenticated: false,
+              isGuestMode: false,
+              isLoading: false,
+            });
+            
+            // Clear persisted preferences (keep has_seen_welcome)
+            await AsyncStorage.multiRemove([
+              'pref_haptics',
+              'pref_biometric',
+              'pref_autorefresh',
+              'pref_push',
+              'pref_newlead',
+              'pref_daily',
+              'pref_weekly',
+              'pref_offline',
+            ]);
+            
+            // Navigate to welcome screen
+            router.replace('/(auth)/welcome' as any);
+          } catch (error) {
+            console.error('[Settings] Sign out error:', error);
+            // Still navigate even if sign out fails
+            useAuthStore.setState({
+              user: null,
+              session: null,
+              isAuthenticated: false,
+              isGuestMode: false,
+              isLoading: false,
+            });
+            router.replace('/(auth)/welcome' as any);
+          }
         },
       },
     ]);

@@ -241,9 +241,9 @@ export default function AnalyticsScreen() {
   ];
 
   return (
-    <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
+    <View style={[st.root, { backgroundColor: colors.bgVoid }]}>
       <LinearGradient
-        colors={[Colors.bgPrimary, Colors.bgPrimary, 'rgba(14, 165, 233, 0.03)']}
+        colors={[Colors.bgVoid, Colors.bgVoid, 'rgba(0, 212, 255, 0.03)']}
         locations={[0, 0.65, 1]}
         style={StyleSheet.absoluteFill}
       />
@@ -352,7 +352,7 @@ export default function AnalyticsScreen() {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bgPrimary },
+  root: { flex: 1, backgroundColor: Colors.bgVoid },
   container: { flex: 1 },
   scroll: { paddingHorizontal: ScreenPadding.horizontal },
   title: { ...TextStyles.h1, color: Colors.textPrimary, paddingTop: Spacing.base, marginBottom: Spacing.sm },
@@ -368,7 +368,7 @@ const st = StyleSheet.create({
 
   /* Stats grid */
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
-  statCard: { width: '48%' as any, flexGrow: 1, backgroundColor: Colors.bgCard, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.xs, overflow: 'hidden' },
+  statCard: { width: '48%' as any, flexGrow: 1, backgroundColor: Colors.bgInput, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: Spacing.md, gap: Spacing.xs, overflow: 'hidden' },
   statIconWrap: { width: 32, height: 32, borderRadius: BorderRadius.sm, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xs },
   statValue: { ...Fonts.monoBold, fontSize: TypeScale.h2, color: Colors.textPrimary, letterSpacing: -0.5 },
   statLabel: { ...Fonts.bodyMedium, fontSize: TypeScale.caption, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 },
@@ -381,7 +381,7 @@ const st = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   sectionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.electric },
   sectionTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.h4, color: Colors.textPrimary },
-  card: { backgroundColor: Colors.bgCard, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: Colors.border, padding: Spacing.base, overflow: 'hidden' },
+  card: { backgroundColor: Colors.bgInput, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: Spacing.base, overflow: 'hidden' },
 
   /* Bar chart */
   chartWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, height: 160 },

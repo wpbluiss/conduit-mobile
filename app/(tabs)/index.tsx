@@ -20,7 +20,6 @@ import { useAppTheme } from '../../contexts/ThemeContext';
 import { Badge } from '../../components/ui/Badge';
 import { ShimmerSkeleton } from '../../components/ui/ShimmerSkeleton';
 import { ErrorToast } from '../../components/ui/ErrorToast';
-import { StatusColors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 
@@ -123,8 +122,8 @@ function LeadCard({ lead, onPress }: {
   const { colors } = useAppTheme();
   const scale = useRef(new Animated.Value(1)).current;
   const borderColor = {
-    new: colors.electric,
-    contacted: StatusColors.contacted,
+    new: colors.premiumCyan,
+    contacted: colors.warning,
     booked: colors.success,
     lost: colors.danger,
   }[lead.status] || colors.border;
@@ -167,9 +166,9 @@ function DashStatCard({ label, value, prefix, suffix, accentColor }: {
   const count = useCountUp(value, 1200);
 
   return (
-    <View style={[st.statCard, { backgroundColor: colors.bgCard, borderColor: colors.borderLight }]}>
+    <View style={[st.statCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
       <View style={[st.statAccent, { backgroundColor: accentColor }]} />
-      <Text style={[st.statLabel, { color: colors.textMuted }]}>{label}</Text>
+      <Text style={[st.statLabel, { color: '#9CA3AF' }]}>{label}</Text>
       <Text style={[st.statValue, { color: colors.textPrimary }]}>
         {prefix}{count.toLocaleString()}{suffix}
       </Text>
@@ -179,11 +178,11 @@ function DashStatCard({ label, value, prefix, suffix, accentColor }: {
 
 // ── Feature Card ─────────────────────────────────────────────
 
-function FeatureCard({ icon, title, subtitle, gradientColors, onPress }: {
+function FeatureCard({ icon, title, subtitle, iconBg, onPress }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
-  gradientColors: [string, string];
+  iconBg: string;
   onPress: () => void;
 }) {
   const { colors } = useAppTheme();
@@ -191,15 +190,15 @@ function FeatureCard({ icon, title, subtitle, gradientColors, onPress }: {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [st.featureCard, { backgroundColor: colors.bgCard, borderColor: colors.border }, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+      style={({ pressed }) => [st.featureCard, { backgroundColor: colors.bgInput, borderColor: colors.borderLight }, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
     >
       <View style={st.featureRow}>
-        <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.featureIcon}>
+        <View style={[st.featureIcon, { backgroundColor: iconBg }]}>
           <Ionicons name={icon} size={20} color="#fff" />
-        </LinearGradient>
+        </View>
         <View style={st.featureTextCol}>
           <Text style={[st.featureTitle, { color: colors.textPrimary }]}>{title}</Text>
-          <Text style={[st.featureSub, { color: colors.textMuted }]}>{subtitle}</Text>
+          <Text style={[st.featureSub, { color: '#6B7280' }]}>{subtitle}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
       </View>
@@ -310,10 +309,13 @@ export default function DashboardScreen() {
   return (
     <View style={[st.root, { backgroundColor: colors.bgPrimary }]}>
       <LinearGradient
-        colors={[colors.bgPrimary, colors.bgPrimary, isDark ? 'rgba(14, 165, 233, 0.03)' : 'rgba(2, 132, 199, 0.03)']}
+        colors={[colors.bgPrimary, colors.bgPrimary, isDark ? 'rgba(0, 212, 255, 0.03)' : 'rgba(2, 132, 199, 0.03)']}
         locations={[0, 0.6, 1]}
         style={StyleSheet.absoluteFill}
       />
+      {isDark && (
+        <View style={st.radialGlow} />
+      )}
 
       <ErrorToast
         message={errorMsg}
@@ -366,7 +368,7 @@ export default function DashboardScreen() {
 
         {/* ── Stat Cards ── */}
         <View style={st.statsRow}>
-          <DashStatCard label="TODAY" value={stats.leads_today} accentColor={colors.cyan} />
+          <DashStatCard label="TODAY" value={stats.leads_today} accentColor={colors.premiumCyan} />
           <DashStatCard label="THIS MONTH" value={stats.leads_this_month} accentColor={colors.success} />
           <DashStatCard label="CAPTURE" value={stats.capture_rate} suffix="%" accentColor={colors.warning} />
         </View>
@@ -376,28 +378,28 @@ export default function DashboardScreen() {
           icon="card-outline"
           title="Payments & Deposits"
           subtitle={isGuestMode && stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} collected` : 'View payments'}
-          gradientColors={colors.gradientElectric as any}
+          iconBg="#3B82F6"
           onPress={() => router.push('/payments' as any)}
         />
         <FeatureCard
           icon="calendar-outline"
           title="Calendar & Bookings"
           subtitle={isGuestMode && stats.leads_this_week ? `${stats.leads_this_week} this week` : 'View bookings'}
-          gradientColors={[colors.cyan, colors.electric]}
+          iconBg="#10B981"
           onPress={() => router.push('/calendar' as any)}
         />
         <FeatureCard
           icon="trending-up"
           title="Revenue Dashboard"
           subtitle={isGuestMode && stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} saved` : 'View revenue'}
-          gradientColors={[colors.success, colors.cyan]}
+          iconBg="#00D4FF"
           onPress={() => router.push('/revenue' as any)}
         />
         <FeatureCard
           icon="star"
           title="Reviews & Reputation"
           subtitle="Manage reviews"
-          gradientColors={[colors.warning, '#F97316']}
+          iconBg="#F59E0B"
           onPress={() => router.push('/reviews' as any)}
         />
 
@@ -436,6 +438,16 @@ export default function DashboardScreen() {
 
 const st = StyleSheet.create({
   root: { flex: 1 },
+  radialGlow: {
+    position: 'absolute',
+    top: -120,
+    left: '50%' as any,
+    marginLeft: -200,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: 'rgba(0, 212, 255, 0.03)',
+  },
   container: { flex: 1 },
   scroll: { paddingHorizontal: ScreenPadding.horizontal, gap: Spacing.md },
 
@@ -488,20 +500,22 @@ const st = StyleSheet.create({
     flex: 1,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    padding: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingRight: Spacing.md,
+    paddingLeft: Spacing.md + 4,
     minHeight: 104,
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
   statAccent: {
     position: 'absolute',
-    top: 0, left: 0, right: 0,
-    height: 2,
+    top: 0, left: 0, bottom: 0,
+    width: 4,
     borderTopLeftRadius: BorderRadius.lg,
-    borderTopRightRadius: BorderRadius.lg,
+    borderBottomLeftRadius: BorderRadius.lg,
   },
-  statLabel: { ...Fonts.bodyMedium, fontSize: TypeScale.tiny, letterSpacing: 0.8, marginBottom: Spacing.sm },
-  statValue: { ...Fonts.monoBold, fontSize: TypeScale.stat, letterSpacing: -0.5 },
+  statLabel: { ...Fonts.bodyMedium, fontSize: TypeScale.tiny, letterSpacing: 1.2, marginBottom: Spacing.sm, textTransform: 'uppercase' },
+  statValue: { ...Fonts.monoBold, fontSize: 36, letterSpacing: -0.5 },
 
   featureCard: {
     borderRadius: BorderRadius.lg,
@@ -510,10 +524,10 @@ const st = StyleSheet.create({
     overflow: 'hidden',
   },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  featureIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   featureTextCol: { flex: 1 },
   featureTitle: { ...Fonts.bodySemibold, fontSize: TypeScale.body },
-  featureSub: { ...Fonts.mono, fontSize: TypeScale.caption, marginTop: 2 },
+  featureSub: { ...Fonts.body, fontSize: TypeScale.bodySm, marginTop: 2 },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.sm },
   sectionLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
@@ -535,8 +549,8 @@ const st = StyleSheet.create({
   leadAvatarText: { ...Fonts.displayBold, fontSize: TypeScale.h3, color: '#fff' },
   leadInfo: { flex: 1, gap: 3 },
   leadNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  leadName: { ...Fonts.bodySemibold, fontSize: TypeScale.body, flex: 1 },
-  leadTime: { ...Fonts.mono, fontSize: TypeScale.tiny, marginLeft: Spacing.sm },
+  leadName: { ...Fonts.bodySemibold, fontSize: TypeScale.h4, flex: 1 },
+  leadTime: { ...Fonts.mono, fontSize: TypeScale.caption, marginLeft: Spacing.sm },
   leadSummary: { ...Fonts.body, fontSize: TypeScale.bodySm },
   leadBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   leadPhone: { ...Fonts.mono, fontSize: TypeScale.caption },

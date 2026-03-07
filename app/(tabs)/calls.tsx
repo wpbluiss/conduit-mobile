@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLeadsStore } from '../../store/leadsStore';
 import { Badge } from '../../components/ui/Badge';
 import { useAppTheme } from '../../contexts/ThemeContext';
-import { Colors, StatusColors } from '../../constants/colors';
+import { Colors } from '../../constants/colors';
 import { Fonts, TypeScale, TextStyles } from '../../constants/typography';
 import { Spacing, BorderRadius, ScreenPadding } from '../../constants/layout';
 import type { Lead } from '../../lib/api';
@@ -81,8 +81,8 @@ function getTimeAgo(d: string) {
 }
 
 const STATUS_BORDER: Record<string, string> = {
-  new: Colors.electric,
-  contacted: StatusColors.contacted,
+  new: '#00D4FF',
+  contacted: Colors.warning,
   booked: Colors.success,
   lost: Colors.danger,
 };
@@ -442,7 +442,7 @@ const st = StyleSheet.create({
     backgroundColor: Colors.bgCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255,255,255,0.06)',
     paddingVertical: Spacing.md,
     paddingRight: Spacing.md,
     paddingLeft: Spacing.md + 4,

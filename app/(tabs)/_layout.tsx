@@ -22,6 +22,7 @@ function TabIcon({ name, focused, color, colors }: { name: keyof typeof Ionicons
     <Animated.View style={[st.iconC, as]}>
       {focused && <View style={[st.glow, { backgroundColor: colors.electricMuted }]} />}
       <Ionicons name={name} size={TB.iconSize} color={color} />
+      {focused && <View style={[st.activeDot, { backgroundColor: colors.electric }]} />}
     </Animated.View>
   );
 }
@@ -33,9 +34,9 @@ export default function TabLayout() {
     <>
       {isGuestMode && <DemoModeBadge />}
       <Tabs screenOptions={{
-        headerShown: false, tabBarActiveTintColor: colors.electric, tabBarInactiveTintColor: colors.textMuted,
+        headerShown: false, tabBarActiveTintColor: colors.electric, tabBarInactiveTintColor: isDark ? '#4B5563' : colors.textMuted,
         tabBarLabelStyle: { ...Fonts.bodyMedium, fontSize: TB.labelSize, marginTop: -2 },
-        tabBarStyle: { backgroundColor: Platform.OS === 'ios' ? (isDark ? 'rgba(10, 15, 30, 0.92)' : 'rgba(255, 255, 255, 0.95)') : colors.bgPrimary, borderTopColor: colors.border, borderTopWidth: 1, height: TB.height + (Platform.OS === 'ios' ? 20 : 0), paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 24 : 8 },
+        tabBarStyle: { backgroundColor: isDark ? colors.bgInput : (Platform.OS === 'ios' ? 'rgba(255, 255, 255, 0.95)' : colors.bgPrimary), borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border, borderTopWidth: 1, height: TB.height + (Platform.OS === 'ios' ? 20 : 0), paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 24 : 8 },
       }} screenListeners={{ tabPress: () => { Haptics.selectionAsync(); } }}>
         <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'home' : 'home-outline'} focused={focused} color={color} colors={colors} /> }} />
         <Tabs.Screen name="agent" options={{ title: 'AI Agent', tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? 'hardware-chip' : 'hardware-chip-outline'} focused={focused} color={color} colors={colors} /> }} />
@@ -50,6 +51,7 @@ export default function TabLayout() {
 }
 
 const st = StyleSheet.create({
-  iconC: { alignItems: 'center', justifyContent: 'center', width: 40, height: 28 },
+  iconC: { alignItems: 'center', justifyContent: 'center', width: 40, height: 32 },
   glow: { position: 'absolute', width: 32, height: 32, borderRadius: 16 },
+  activeDot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
 });

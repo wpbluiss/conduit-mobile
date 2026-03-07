@@ -44,15 +44,36 @@ function RootLayoutInner() {
   const notificationRegistered = useRef(false);
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
+  const navigationLockRef = useRef(false);
 
   const onboardingComplete = user?.user_metadata?.onboarding_complete === true;
 
   useEffect(() => {
     initialize();
-    AsyncStorage.getItem('has_seen_welcome').then((val) => {
-      setHasSeenWelcome(val === 'true');
-    });
+    const loadWelcomeFlag = async () => {
+      try {
+        const val = await AsyncStorage.getItem('has_seen_welcome');
+        setHasSeenWelcome(val === 'true');
+      } catch (e) {
+        console.error('[Layout] Failed to read has_seen_welcome:', e);
+        setHasSeenWelcome(false);
+      }
+    };
+    loadWelcomeFlag();
   }, []);
+
+  // Re-check hasSeenWelcome when returning to auth screens (iPad fix)
+  useEffect(() => {
+    const inAuth = segments[0] === '(auth)';
+    if (inAuth && !navigationLockRef.current) {
+      AsyncStorage.getItem('has_seen_welcome').then((val) => {
+        const seen = val === 'true';
+        if (seen !== hasSeenWelcome) {
+          setHasSeenWelcome(seen);
+        }
+      });
+    }
+  }, [segments]);
 
   useEffect(() => {
     if (!isLoading && hasSeenWelcome !== null && fontsLoaded) SplashScreen.hideAsync();
@@ -162,6 +183,7 @@ function RootLayoutInner() {
 
   useEffect(() => {
     if (isLoading || hasSeenWelcome === null || !fontsLoaded) return;
+    if (navigationLockRef.current) return;
 
     const inAuth = segments[0] === '(auth)';
     const inWelcome = segments[1] === 'welcome';
@@ -170,12 +192,19 @@ function RootLayoutInner() {
 
     console.log('[Router] isAuthenticated:', isAuthenticated, 'isGuestMode:', isGuestMode, 'hasSeenWelcome:', hasSeenWelcome, 'onboardingComplete:', onboardingComplete, 'segments:', segments);
 
+    const navigate = (route: string) => {
+      navigationLockRef.current = true;
+      router.replace(route as any);
+      // Release lock after navigation settles
+      setTimeout(() => { navigationLockRef.current = false; }, 500);
+    };
+
     try {
       // Guest mode: allow tabs, redirect to tabs if stuck in auth
       if (isGuestMode && !isAuthenticated) {
         if (inAuth) {
           console.log('[Router] Guest mode → tabs');
-          router.replace('/(tabs)');
+          navigate('/(tabs)');
         }
         // Already in tabs or other screens, do nothing
         return;
@@ -183,22 +212,23 @@ function RootLayoutInner() {
 
       if (!isAuthenticated && !hasSeenWelcome && !inWelcome) {
         console.log('[Router] Navigating to welcome');
-        router.replace('/(auth)/welcome');
+        navigate('/(auth)/welcome');
       }
       else if (!isAuthenticated && hasSeenWelcome && !inAuth) {
         console.log('[Router] Navigating to login');
-        router.replace('/(auth)/login');
+        navigate('/(auth)/login');
       }
       else if (isAuthenticated && !onboardingComplete && !inOnboarding) {
         console.log('[Router] Navigating to onboarding');
-        router.replace('/(auth)/onboarding');
+        navigate('/(auth)/onboarding');
       }
       else if (isAuthenticated && onboardingComplete && inAuth) {
         console.log('[Router] Navigating to tabs');
-        router.replace('/(tabs)');
+        navigate('/(tabs)');
       }
     } catch (e) {
       console.error('[Router] Navigation error:', e);
+      navigationLockRef.current = false;
     }
   }, [isAuthenticated, isGuestMode, isLoading, segments, onboardingComplete, hasSeenWelcome]);
 
