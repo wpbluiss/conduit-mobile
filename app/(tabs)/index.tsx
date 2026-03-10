@@ -373,35 +373,7 @@ export default function DashboardScreen() {
           <DashStatCard label="CAPTURE" value={stats.capture_rate} suffix="%" accentColor={colors.warning} />
         </View>
 
-        {/* ── Feature Cards ── */}
-        <FeatureCard
-          icon="card-outline"
-          title="Payments & Deposits"
-          subtitle={isGuestMode && stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} collected` : 'View payments'}
-          iconBg="#3B82F6"
-          onPress={() => router.push('/payments' as any)}
-        />
-        <FeatureCard
-          icon="calendar-outline"
-          title="Calendar & Bookings"
-          subtitle={isGuestMode && stats.leads_this_week ? `${stats.leads_this_week} this week` : 'View bookings'}
-          iconBg="#10B981"
-          onPress={() => router.push('/calendar' as any)}
-        />
-        <FeatureCard
-          icon="trending-up"
-          title="Revenue Dashboard"
-          subtitle={isGuestMode && stats.revenue_saved ? `$${stats.revenue_saved.toLocaleString()} saved` : 'View revenue'}
-          iconBg="#00D4FF"
-          onPress={() => router.push('/revenue' as any)}
-        />
-        <FeatureCard
-          icon="star"
-          title="Reviews & Reputation"
-          subtitle="Manage reviews"
-          iconBg="#F59E0B"
-          onPress={() => router.push('/reviews' as any)}
-        />
+
 
         {/* ── Recent Activity ── */}
         <View style={st.sectionHeader}>

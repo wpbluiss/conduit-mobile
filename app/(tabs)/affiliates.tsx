@@ -396,11 +396,8 @@ export default function AffiliatesScreen() {
               </Text>
             </View>
           </View>
-          <Pressable style={st.payoutBtn} disabled>
+          <Pressable style={[st.payoutBtn, { opacity: 0.5 }]} disabled>
             <Text style={st.payoutBtnText}>Request Payout</Text>
-            <View style={st.comingSoonBadge}>
-              <Text style={st.comingSoonText}>COMING SOON</Text>
-            </View>
           </Pressable>
         </View>
 

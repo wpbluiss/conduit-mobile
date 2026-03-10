@@ -10,6 +10,8 @@ import { useAuthStore } from '../store/authStore';
 import { ThemeProvider, useAppTheme } from '../contexts/ThemeContext';
 import { registerForPushNotifications, parseNotificationData, getNavigationTarget, clearBadgeCount, subscribeToNewCalls } from '../lib/notifications';
 import { NotificationBanner, type BannerData } from '../components/ui/NotificationBanner';
+import { AIConsentModal } from '../components/ui/AIConsentModal';
+import { supabase } from '../lib/supabase';
 import { useLeadsStore } from '../store/leadsStore';
 
 SplashScreen.preventAutoHideAsync();
@@ -38,6 +40,54 @@ function RootLayoutInner() {
     JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
   });
+
+  // AI Data Consent check (Apple Guidelines 5.1.1/5.1.2)
+  const [showAIConsent, setShowAIConsent] = useState(false);
+  const consentChecked = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isGuestMode || !user?.id || consentChecked.current) return;
+    consentChecked.current = true;
+
+    (async () => {
+      try {
+        // Check if user already gave consent
+        const stored = await AsyncStorage.getItem('ai_data_consent_given');
+        if (stored === 'true') return;
+
+        // Also check Supabase user metadata
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const metadata = currentUser?.user_metadata;
+        if (metadata?.ai_data_consent === true) {
+          await AsyncStorage.setItem('ai_data_consent_given', 'true');
+          return;
+        }
+
+        // No consent found — show modal
+        setShowAIConsent(true);
+      } catch (e) {
+        console.error('[Consent] Error checking consent:', e);
+      }
+    })();
+  }, [isAuthenticated, isGuestMode, user?.id]);
+
+  const handleConsentAccept = async () => {
+    setShowAIConsent(false);
+    await AsyncStorage.setItem('ai_data_consent_given', 'true');
+    try {
+      await supabase.auth.updateUser({
+        data: { ai_data_consent: true, ai_data_consent_date: new Date().toISOString() },
+      });
+    } catch (e) {
+      console.error('[Consent] Error saving consent:', e);
+    }
+  };
+
+  const handleConsentDecline = async () => {
+    setShowAIConsent(false);
+    // Sign out if they decline — they can't use the app without consent
+    useAuthStore.getState().signOut();
+  };
 
   const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null);
   const [bannerData, setBannerData] = useState<BannerData | null>(null);
@@ -234,10 +284,20 @@ function RootLayoutInner() {
 
   if (isLoading || hasSeenWelcome === null || !fontsLoaded) return null;
 
+  // Render AI Consent Modal overlay when needed
+  const consentModal = (
+    <AIConsentModal
+      visible={showAIConsent}
+      onAccept={handleConsentAccept}
+      onDecline={handleConsentDecline}
+    />
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgVoid }}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgVoid} />
       <Slot />
+      {consentModal}
       <NotificationBanner
         data={bannerData}
         onPress={handleBannerPress}

@@ -993,13 +993,13 @@ export default function SettingsScreen() {
                   icon="card-outline"
                   iconColor={colors.cyan}
                   label="Manage Billing"
-                  onPress={() => Alert.alert('Coming Soon', 'Billing management will be available in a future update.')}
+                  onPress={() => Alert.alert('Manage Billing', 'To manage your billing, visit app.conduitai.io from your browser.')}
                 />
                 <Row
                   icon="arrow-up-circle-outline"
                   iconColor={colors.success}
                   label="Upgrade Plan"
-                  onPress={() => Alert.alert('Coming Soon', 'Plan upgrades will be available in a future update.')}
+                  onPress={() => Alert.alert('Upgrade Plan', 'To upgrade your plan, visit app.conduitai.io from your browser.')}
                 />
 
                 {/* Recent Invoices */}
@@ -1130,18 +1130,7 @@ export default function SettingsScreen() {
                   </View>
                 </View>
 
-                {/* Manage Locations */}
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push('/locations' as any);
-                  }}
-                  style={[st.locationsLink, { borderTopColor: colors.border }]}
-                >
-                  <Ionicons name="location-outline" size={16} color={colors.electric} />
-                  <Text style={[st.locationsLinkText, { color: colors.electric }]}>Manage Locations & Agents</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.electric} />
-                </Pressable>
+
               </View>
             )}
           </View>
