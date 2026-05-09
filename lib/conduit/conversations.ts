@@ -8,7 +8,7 @@ export async function listConversations(): Promise<Conversation[]> {
 
   const { data, error } = await supabase
     .from("conduit_conversations")
-    .select("id, account_id, title, created_at, updated_at")
+    .select("id, account_id, title, created_at, updated_at, dominant_employee")
     .eq("account_id", account.id)
     .order("updated_at", { ascending: false })
     .limit(100);
@@ -18,6 +18,26 @@ export async function listConversations(): Promise<Conversation[]> {
     return [];
   }
   return (data ?? []) as Conversation[];
+}
+
+/** Return the most recent conversation, or null if none exist. */
+export async function getMostRecentConversation(): Promise<Conversation | null> {
+  const account = await getOrCreateAccount();
+  if (!account) return null;
+
+  const { data, error } = await supabase
+    .from("conduit_conversations")
+    .select("id, account_id, title, created_at, updated_at, dominant_employee")
+    .eq("account_id", account.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[Conversations] recent failed:", error.message);
+    return null;
+  }
+  return (data ?? null) as Conversation | null;
 }
 
 export async function getConversation(
