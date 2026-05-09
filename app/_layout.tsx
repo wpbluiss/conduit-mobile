@@ -1,308 +1,108 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, StatusBar, AppState } from 'react-native';
-import { Slot, useRouter, useSegments } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFonts, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold } from '@expo-google-fonts/outfit';
-import { JetBrainsMono_400Regular, JetBrainsMono_500Medium, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
-import { useAuthStore } from '../store/authStore';
-import { ThemeProvider, useAppTheme } from '../contexts/ThemeContext';
-import { registerForPushNotifications, parseNotificationData, getNavigationTarget, clearBadgeCount, subscribeToNewCalls } from '../lib/notifications';
-import { NotificationBanner, type BannerData } from '../components/ui/NotificationBanner';
-import { AIConsentModal } from '../components/ui/AIConsentModal';
-import { supabase } from '../lib/supabase';
-import { useLeadsStore } from '../store/leadsStore';
+import { useEffect, useRef } from "react";
+import { View, StatusBar } from "react-native";
+import { Slot, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useFonts } from "expo-font";
+import {
+  Fraunces_500Medium,
+  Fraunces_600SemiBold,
+  Fraunces_700Bold,
+  Fraunces_500Medium_Italic,
+} from "@expo-google-fonts/fraunces";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+} from "@expo-google-fonts/jetbrains-mono";
+import { useAuthStore } from "../store/authStore";
+import { PraxisThemeProvider, usePraxisTheme } from "../contexts/PraxisThemeContext";
+import { registerForPushNotifications } from "../lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
+    <PraxisThemeProvider>
       <RootLayoutInner />
-    </ThemeProvider>
+    </PraxisThemeProvider>
   );
 }
 
 function RootLayoutInner() {
-  const { initialize, isLoading, isAuthenticated, isGuestMode, user } = useAuthStore();
-  const { colors, isDark } = useAppTheme();
+  const { initialize, isLoading, isAuthenticated, user } = useAuthStore();
+  const theme = usePraxisTheme();
   const segments = useSegments();
   const router = useRouter();
 
   const [fontsLoaded] = useFonts({
-    Outfit_400Regular,
-    Outfit_500Medium,
-    Outfit_600SemiBold,
-    Outfit_700Bold,
-    Outfit_800ExtraBold,
+    Fraunces_500Medium,
+    Fraunces_600SemiBold,
+    Fraunces_700Bold,
+    Fraunces_500Medium_Italic,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium,
-    JetBrainsMono_700Bold,
   });
 
-  // AI Data Consent check (Apple Guidelines 5.1.1/5.1.2)
-  const [showAIConsent, setShowAIConsent] = useState(false);
-  const consentChecked = useRef(false);
-
-  useEffect(() => {
-    if (!isAuthenticated || isGuestMode || !user?.id || consentChecked.current) return;
-    consentChecked.current = true;
-
-    (async () => {
-      try {
-        // Check if user already gave consent
-        const stored = await AsyncStorage.getItem('ai_data_consent_given');
-        if (stored === 'true') return;
-
-        // Also check Supabase user metadata
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        const metadata = currentUser?.user_metadata;
-        if (metadata?.ai_data_consent === true) {
-          await AsyncStorage.setItem('ai_data_consent_given', 'true');
-          return;
-        }
-
-        // No consent found — show modal
-        setShowAIConsent(true);
-      } catch (e) {
-        console.error('[Consent] Error checking consent:', e);
-      }
-    })();
-  }, [isAuthenticated, isGuestMode, user?.id]);
-
-  const handleConsentAccept = async () => {
-    setShowAIConsent(false);
-    await AsyncStorage.setItem('ai_data_consent_given', 'true');
-    try {
-      await supabase.auth.updateUser({
-        data: { ai_data_consent: true, ai_data_consent_date: new Date().toISOString() },
-      });
-    } catch (e) {
-      console.error('[Consent] Error saving consent:', e);
-    }
-  };
-
-  const handleConsentDecline = async () => {
-    setShowAIConsent(false);
-    // Sign out if they decline — they can't use the app without consent
-    useAuthStore.getState().signOut();
-  };
-
-  const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null);
-  const [bannerData, setBannerData] = useState<BannerData | null>(null);
-  const notificationRegistered = useRef(false);
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener = useRef<Notifications.EventSubscription | null>(null);
   const navigationLockRef = useRef(false);
-
-  const onboardingComplete = user?.user_metadata?.onboarding_complete === true;
+  const pushRegisteredRef = useRef(false);
 
   useEffect(() => {
     initialize();
-    const loadWelcomeFlag = async () => {
-      try {
-        const val = await AsyncStorage.getItem('has_seen_welcome');
-        setHasSeenWelcome(val === 'true');
-      } catch (e) {
-        console.error('[Layout] Failed to read has_seen_welcome:', e);
-        setHasSeenWelcome(false);
-      }
-    };
-    loadWelcomeFlag();
-  }, []);
-
-  // Re-check hasSeenWelcome when returning to auth screens (iPad fix)
-  useEffect(() => {
-    const inAuth = segments[0] === '(auth)';
-    if (inAuth && !navigationLockRef.current) {
-      AsyncStorage.getItem('has_seen_welcome').then((val) => {
-        const seen = val === 'true';
-        if (seen !== hasSeenWelcome) {
-          setHasSeenWelcome(seen);
-        }
-      });
-    }
-  }, [segments]);
+  }, [initialize]);
 
   useEffect(() => {
-    if (!isLoading && hasSeenWelcome !== null && fontsLoaded) SplashScreen.hideAsync();
-  }, [isLoading, hasSeenWelcome, fontsLoaded]);
+    if (!isLoading && fontsLoaded) SplashScreen.hideAsync();
+  }, [isLoading, fontsLoaded]);
 
-  // ── Push notification registration after auth (skip in guest mode) ──
   useEffect(() => {
-    if (isAuthenticated && !isGuestMode && user?.id && !notificationRegistered.current) {
-      notificationRegistered.current = true;
+    if (isAuthenticated && user?.id && !pushRegisteredRef.current) {
+      pushRegisteredRef.current = true;
       registerForPushNotifications(user.id).catch((err) => {
-        console.error('[Layout] Push notification registration failed:', err);
+        console.error("[Layout] Push registration failed:", err);
       });
     }
-  }, [isAuthenticated, isGuestMode, user?.id]);
-
-  // ── Notification listeners ──
-  useEffect(() => {
-    // Foreground: show in-app banner
-    notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-      const parsed = parseNotificationData(notification);
-      if (parsed) {
-        setBannerData({
-          category: parsed.category,
-          lead_id: parsed.lead_id,
-          caller_name: parsed.caller_name,
-          caller_phone: parsed.caller_phone,
-          summary: parsed.summary,
-          duration: parsed.duration,
-          outcome: parsed.outcome,
-        });
-      }
-    });
-
-    // Tap response: navigate to lead detail
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
-      const parsed = parseNotificationData(response.notification);
-      if (parsed) {
-        const target = getNavigationTarget(parsed);
-        if (target) {
-          router.push(target as any);
-        }
-      }
-    });
-
-    return () => {
-      notificationListener.current?.remove();
-      responseListener.current?.remove();
-    };
-  }, [router]);
-
-  // ── Realtime subscription for new calls → in-app banner + local notification ──
-  useEffect(() => {
-    if (!isAuthenticated || isGuestMode) return;
-
-    const unsubscribe = subscribeToNewCalls((call: any) => {
-      // Show in-app banner with real call data
-      const callerName = call.caller_name || 'Unknown Caller';
-      const service = call.service_needed || call.transcript_summary || call.notes || '';
-      const phone = call.caller_phone || '';
-
-      setBannerData({
-        category: 'new_lead',
-        lead_id: call.id,
-        caller_name: callerName,
-        caller_phone: phone,
-        summary: service,
-      });
-
-      // Also refresh the leads store so lists update
-      useLeadsStore.getState().refresh();
-    });
-
-    return unsubscribe;
-  }, [isAuthenticated, isGuestMode]);
-
-  // ── Clear badge when app comes to foreground ──
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') clearBadgeCount();
-    });
-    return () => sub.remove();
-  }, []);
-
-  // ── Check for notification that launched the app ──
-  useEffect(() => {
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) {
-        const parsed = parseNotificationData(response.notification);
-        if (parsed) {
-          const target = getNavigationTarget(parsed);
-          if (target) {
-            // Small delay to ensure router is ready
-            setTimeout(() => router.push(target as any), 500);
-          }
-        }
-      }
-    });
-  }, []);
-
-  const handleBannerPress = useCallback((leadId: string) => {
-    router.push(`/lead/${leadId}` as any);
-  }, [router]);
-
-  const handleBannerDismiss = useCallback(() => {
-    setBannerData(null);
-  }, []);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
-    if (isLoading || hasSeenWelcome === null || !fontsLoaded) return;
+    if (isLoading || !fontsLoaded) return;
     if (navigationLockRef.current) return;
 
-    const inAuth = segments[0] === '(auth)';
-    const inWelcome = segments[1] === 'welcome';
-    const inOnboarding = segments[1] === 'onboarding';
-    const inTabs = segments[0] === '(tabs)';
-
-    console.log('[Router] isAuthenticated:', isAuthenticated, 'isGuestMode:', isGuestMode, 'hasSeenWelcome:', hasSeenWelcome, 'onboardingComplete:', onboardingComplete, 'segments:', segments);
+    const inAuth = segments[0] === "(auth)";
+    const inApp = segments[0] === "(app)";
 
     const navigate = (route: string) => {
       navigationLockRef.current = true;
-      router.replace(route as any);
-      // Release lock after navigation settles
-      setTimeout(() => { navigationLockRef.current = false; }, 500);
+      router.replace(route as never);
+      setTimeout(() => {
+        navigationLockRef.current = false;
+      }, 500);
     };
 
-    try {
-      // Guest mode: allow tabs, redirect to tabs if stuck in auth
-      if (isGuestMode && !isAuthenticated) {
-        if (inAuth) {
-          console.log('[Router] Guest mode → tabs');
-          navigate('/(tabs)');
-        }
-        // Already in tabs or other screens, do nothing
-        return;
-      }
-
-      if (!isAuthenticated && !hasSeenWelcome && !inWelcome) {
-        console.log('[Router] Navigating to welcome');
-        navigate('/(auth)/welcome');
-      }
-      else if (!isAuthenticated && hasSeenWelcome && !inAuth) {
-        console.log('[Router] Navigating to login');
-        navigate('/(auth)/login');
-      }
-      else if (isAuthenticated && !onboardingComplete && !inOnboarding) {
-        console.log('[Router] Navigating to onboarding');
-        navigate('/(auth)/onboarding');
-      }
-      else if (isAuthenticated && onboardingComplete && inAuth) {
-        console.log('[Router] Navigating to tabs');
-        navigate('/(tabs)');
-      }
-    } catch (e) {
-      console.error('[Router] Navigation error:', e);
-      navigationLockRef.current = false;
+    if (!isAuthenticated && !inAuth) {
+      navigate("/(auth)/sign-in");
+    } else if (isAuthenticated && !inApp) {
+      navigate("/(app)");
     }
-  }, [isAuthenticated, isGuestMode, isLoading, segments, onboardingComplete, hasSeenWelcome]);
+  }, [isAuthenticated, isLoading, fontsLoaded, segments, router]);
 
-  if (isLoading || hasSeenWelcome === null || !fontsLoaded) return null;
-
-  // Render AI Consent Modal overlay when needed
-  const consentModal = (
-    <AIConsentModal
-      visible={showAIConsent}
-      onAccept={handleConsentAccept}
-      onDecline={handleConsentDecline}
-    />
-  );
+  if (isLoading || !fontsLoaded) return null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgVoid }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgVoid} />
-      <Slot />
-      {consentModal}
-      <NotificationBanner
-        data={bannerData}
-        onPress={handleBannerPress}
-        onDismiss={handleBannerDismiss}
+    <View style={{ flex: 1, backgroundColor: theme.colors.bgCanvas }}>
+      <StatusBar
+        barStyle={theme.isDark ? "light-content" : "dark-content"}
+        backgroundColor={theme.colors.bgCanvas}
       />
+      <Slot />
     </View>
   );
 }
