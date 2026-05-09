@@ -40,3 +40,6 @@ yarn-error.*
 /ios
 /android
 google-service-account.json
+
+# Claude Code session artifacts
+.claude/
