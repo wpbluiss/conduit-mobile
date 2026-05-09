@@ -14,7 +14,7 @@ export async function getOrCreateAccount(): Promise<ConduitAccount | null> {
   const { data: existing, error: fetchErr } = await supabase
     .from("conduit_accounts")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("owner_user_id", user.id)
     .maybeSingle();
 
   if (existing) {
@@ -26,13 +26,16 @@ export async function getOrCreateAccount(): Promise<ConduitAccount | null> {
     console.warn("[Account] Fetch failed:", fetchErr.message);
   }
 
-  // Create one — server side will also do this on web; keep client-side mirror minimal
+  const fullName =
+    (user.user_metadata?.full_name as string | undefined) ??
+    user.email?.split("@")[0] ??
+    "Workspace";
+
   const { data: created, error: insertErr } = await supabase
     .from("conduit_accounts")
     .insert({
-      user_id: user.id,
-      display_name:
-        user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? null,
+      owner_user_id: user.id,
+      name: fullName,
     })
     .select("*")
     .single();
@@ -47,4 +50,8 @@ export async function getOrCreateAccount(): Promise<ConduitAccount | null> {
 
 export function clearAccountCache() {
   cachedAccount = null;
+}
+
+export function getCachedAccount(): ConduitAccount | null {
+  return cachedAccount;
 }

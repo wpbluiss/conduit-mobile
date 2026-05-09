@@ -39,12 +39,34 @@ export async function getBuild(id: string): Promise<BuildSession | null> {
   return data as BuildSession | null;
 }
 
+/**
+ * Engineering logs are keyed by `session_id`, which lives on the conversation
+ * row that owns this build (conversation.engineering_session_id). Resolve it,
+ * then fetch the logs.
+ */
+async function resolveEngineeringSessionId(buildId: string): Promise<string | null> {
+  const build = await getBuild(buildId);
+  if (!build?.conversation_id) return null;
+
+  const { data, error } = await supabase
+    .from("conduit_conversations")
+    .select("engineering_session_id")
+    .eq("id", build.conversation_id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return (data as { engineering_session_id: string | null }).engineering_session_id ?? null;
+}
+
 export async function getBuildLogs(buildId: string): Promise<EngineeringLog[]> {
+  const sessionId = await resolveEngineeringSessionId(buildId);
+  if (!sessionId) return [];
+
   const { data, error } = await supabase
     .from("conduit_engineering_logs")
-    .select("id, build_id, step, status, detail, created_at")
-    .eq("build_id", buildId)
-    .order("created_at", { ascending: true })
+    .select("id, session_id, ts, level, message")
+    .eq("session_id", sessionId)
+    .order("ts", { ascending: true })
     .limit(500);
 
   if (error) {
@@ -58,22 +80,30 @@ export function subscribeToBuildLogs(
   buildId: string,
   onLog: (log: EngineeringLog) => void,
 ): () => void {
-  const channel = supabase
-    .channel(`build-logs-${buildId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "conduit_engineering_logs",
-        filter: `build_id=eq.${buildId}`,
-      },
-      (payload) => onLog(payload.new as EngineeringLog),
-    )
-    .subscribe();
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+  let cancelled = false;
+
+  (async () => {
+    const sessionId = await resolveEngineeringSessionId(buildId);
+    if (cancelled || !sessionId) return;
+    channel = supabase
+      .channel(`build-logs-${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "conduit_engineering_logs",
+          filter: `session_id=eq.${sessionId}`,
+        },
+        (payload) => onLog(payload.new as EngineeringLog),
+      )
+      .subscribe();
+  })();
 
   return () => {
-    supabase.removeChannel(channel);
+    cancelled = true;
+    if (channel) supabase.removeChannel(channel);
   };
 }
 

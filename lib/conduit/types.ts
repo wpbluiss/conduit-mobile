@@ -6,14 +6,20 @@ import type { EmployeeId } from "./employees";
 
 export interface ConduitAccount {
   id: string;
-  user_id: string;
-  display_name: string | null;
-  organization_name: string | null;
+  owner_user_id: string;
+  name: string;
+  business_type: string | null;
+  business_description: string | null;
   tier_id: string | null;
-  tokens_used: number | null;
-  tokens_limit: number | null;
-  billing_period_start: string | null;
-  billing_period_end: string | null;
+  monthly_token_cap: number | null;
+  monthly_tokens_used: number | null;
+  bonus_tokens: number | null;
+  billing_cycle_start: string | null;
+  voice_enabled: boolean | null;
+  voice_speed: number | null;
+  voice_auto_play: boolean | null;
+  streaming_tts_enabled: boolean | null;
+  timezone: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +30,10 @@ export interface Conversation {
   title: string | null;
   created_at: string;
   updated_at: string;
+  dominant_employee?: string | null;
+  voice_session_id?: string | null;
+  engineering_session_id?: string | null;
+  marketing_session_id?: string | null;
 }
 
 export type MessageRole = "user" | "assistant" | "system" | "tool";
@@ -64,13 +74,14 @@ export interface BuildSession {
   archived_at: string | null;
 }
 
+export type EngineeringLogLevel = "info" | "success" | "warn" | "error" | "debug";
+
 export interface EngineeringLog {
   id: string;
-  build_id: string;
-  step: string;
-  status: "started" | "completed" | "failed" | "info";
-  detail: string | null;
-  created_at: string;
+  session_id: string;
+  ts: string;
+  level: EngineeringLogLevel | string;
+  message: string;
 }
 
 export type MemoryKind = "fact" | "preference" | "context" | "note";

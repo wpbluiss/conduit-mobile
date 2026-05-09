@@ -62,7 +62,7 @@ export default function AccountSettingsScreen() {
           </Text>
         </View>
 
-        <Field label="Display name" value={account?.display_name ?? "—"} />
+        <Field label="Workspace" value={account?.name ?? "—"} />
         <Field label="Email" value={user?.email ?? "—"} />
         <Field label="Tier" value={(account?.tier_id ?? "free").toUpperCase()} />
 

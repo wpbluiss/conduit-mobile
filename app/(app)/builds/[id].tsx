@@ -145,44 +145,47 @@ export default function BuildDetailScreen() {
             Waiting on Engineering…
           </Text>
         ) : (
-          logs.map((log) => (
-            <View
-              key={log.id}
-              style={{
-                flexDirection: "row",
-                alignItems: "flex-start",
-                gap: 10,
-                paddingVertical: 8,
-                borderBottomColor: t.colors.borderSubtle,
-                borderBottomWidth: 0.5,
-              }}
-            >
+          logs.map((log) => {
+            const dot =
+              log.level === "error"
+                ? t.colors.danger
+                : log.level === "warn"
+                  ? t.colors.warning
+                  : log.level === "success"
+                    ? t.colors.success
+                    : t.colors.indigo500;
+            return (
               <View
+                key={log.id}
                 style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: 3,
-                  marginTop: 8,
-                  backgroundColor:
-                    log.status === "failed"
-                      ? t.colors.danger
-                      : log.status === "completed"
-                        ? t.colors.success
-                        : t.colors.indigo500,
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  paddingVertical: 8,
+                  borderBottomColor: t.colors.borderSubtle,
+                  borderBottomWidth: 0.5,
                 }}
-              />
-              <View style={{ flex: 1 }}>
-                <Text variant="bodySm" weight="medium">
-                  {log.step}
-                </Text>
-                {log.detail ? (
-                  <Text family="mono" variant="caption" tone="tertiary" style={{ marginTop: 2 }}>
-                    {log.detail}
+              >
+                <View
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    marginTop: 8,
+                    backgroundColor: dot,
+                  }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text family="mono" variant="bodySm">
+                    {log.message}
                   </Text>
-                ) : null}
+                  <Text variant="caption" tone="tertiary" style={{ marginTop: 2 }}>
+                    {new Date(log.ts).toLocaleTimeString()} · {String(log.level).toUpperCase()}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
