@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { View, StatusBar } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -27,9 +28,11 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <PraxisThemeProvider>
-      <RootLayoutInner />
-    </PraxisThemeProvider>
+    <SafeAreaProvider>
+      <PraxisThemeProvider>
+        <RootLayoutInner />
+      </PraxisThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
