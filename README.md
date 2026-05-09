@@ -1,49 +1,71 @@
-# Conduit AI — Mobile App
+# Praxis Console — Mobile
 
-> Cross-platform mobile app for Conduit AI, built with React Native and Expo.
+> The iOS companion to the Praxis Console at [conduitai.io/app](https://conduitai.io/app).
 
-**Platform:** iOS & Android · **Status:** ~90% Complete
+**Platform:** iOS (Android secondary) · **TestFlight:** build 12+
 
-## Overview
+## What this is
 
-The Conduit AI mobile app gives service business owners full access to their AI voice agent platform on the go. Built with React Native (Expo), the app features a premium design language with glassmorphism effects, shimmer animations, waveform visualizations, and particle backgrounds.
+`~/conduit-mobile` was originally a CallFlow AI dialer. As of build 12 it is the
+**Praxis Console mobile app** — your nine-employee AI workforce on the phone.
 
-## Tech Stack
+## Tech stack
 
-- **Framework:** React Native (Expo)
-- **Navigation:** React Navigation
-- **Backend:** FastAPI (Python) via REST API
-- **Authentication:** Supabase Auth
-- **Animations:** React Native Animated API, Shimmer effects
-
-## Screens (8+)
-
-1. **Welcome Walkthrough** — Animated onboarding flow
-2. **Login** — Secure authentication with Supabase
-3. **Signup** — New user registration
-4. **Onboarding** — Business setup and AI agent configuration
-5. **Dashboard** — Real-time metrics with animated visualizations
-6. **Leads** — Lead list with search, filter, and detail view
-7. **Analytics** — Visual charts and performance tracking
-8. **Settings** — Profile management, integrations, preferences
-9. **Lead Detail** — Full lead info with call transcript
-
-## Design Features
-
-- **Glassmorphism UI** — Frosted glass effect cards and overlays
-- **Shimmer Loading** — Premium skeleton loading states
-- **Waveform Visualizations** — Audio-style visual elements
-- **Particle Backgrounds** — Animated floating particles
-- **Dark Theme** — Modern dark color palette throughout
+- **Framework:** Expo SDK 55 / React Native 0.83 / React 19.2
+- **Routing:** expo-router (file-based)
+- **State:** Zustand (`store/authStore`, `store/themeStore`)
+- **Auth & Data:** Supabase (RLS-secured direct reads + cookie-auth chat stream)
+- **Streaming:** Server-Sent Events from `POST /api/conduit/chat`
+- **Realtime:** Supabase channels for messages + build logs
+- **Iconography:** phosphor-react-native (matches the web)
+- **Typography:** Fraunces (display) + Inter (body) + JetBrains Mono
+- **Animation:** react-native-reanimated 4
 
 ## Architecture
 
-The app connects to the live FastAPI backend with mock data fallbacks for offline/development use.
+```
+Mobile (Expo) → Supabase (auth + RLS reads + realtime)
+              → conduitai.io /api/conduit/chat (cookie-auth SSE)
+              → wss://conduit-voice-worker.up.railway.app (v2 voice)
+```
 
- Mobile App (Expo/React Native) → REST API → FastAPI Backend (Railway) → Supabase (Auth/DB)
+## Surfaces
+
+1. **Home** — workspace dashboard with usage, quick start, recent activity, memory
+2. **Chat** — conversations list + streaming detail with employee-aware bubbles
+3. **Voice** — fullscreen voice mode (v1 type-to-Atlas; PTT + TTS land in v2)
+4. **Builds** — engineering sessions with live realtime logs and deploy links
+5. **Team** — nine-employee grid with per-employee profile and dedicated thread
+
+Settings (account, voice prefs, memory, appearance) is reachable from Home.
+
+## Running locally
+
+```bash
+npm install
+npx expo start
+```
+
+Press `i` for iOS Simulator. The app authenticates against the production
+Supabase project (`mvuslmfjkkuizixjpkgl`).
+
+## Shipping a build
+
+```bash
+eas build --profile production --platform ios
+eas submit --profile production --platform ios
+```
+
+Bundle id `io.conduitai.app` is preserved from the CallFlow era so the existing
+TestFlight thread continues uninterrupted.
+
+## Open work (v2)
+
+- Voice input transcription (PTT → STT) and `tts_chunk` audio playback
+- Push notifications wired into `conduit_messages` realtime
+- iPad layout (currently `supportsTablet: false`)
+- Indigo Praxis app icon + splash artwork (current art is pre-rebrand)
+
 ## Author
 
-**Luis Garcia** — Solo founder & full-stack developer
-[conduitai.io](https://conduitai.io) · [luis@conduitai.io](mailto:luis@conduitai.io)
-
-*Premium mobile experience built from scratch by a solo developer using React Native and Expo.*
+Luis Garcia · [conduitai.io](https://conduitai.io)

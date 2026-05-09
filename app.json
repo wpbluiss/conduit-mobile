@@ -1,36 +1,36 @@
 {
   "expo": {
-    "name": "Conduit AI",
+    "name": "Praxis",
     "slug": "conduit-mobile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "conduitai",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#030712"
+      "backgroundColor": "#FAFAF7"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "io.conduitai.app",
-      "buildNumber": "10",
+      "buildNumber": "12",
       "config": {
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID for quick and secure login",
-        "NSMicrophoneUsageDescription": "Conduit AI uses your microphone to enable voice commands and call monitoring features."
+        "NSMicrophoneUsageDescription": "Praxis uses the microphone for voice mode so you can talk with Atlas and the team.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0f1e"
+        "backgroundColor": "#FAFAF7"
       },
       "package": "io.conduitai.app",
-      "versionCode": 10
+      "versionCode": 12
     },
     "plugins": [
       "expo-router",
@@ -39,7 +39,7 @@
       [
         "expo-notifications",
         {
-          "color": "#0EA5E9"
+          "color": "#5B63E8"
         }
       ]
     ],
