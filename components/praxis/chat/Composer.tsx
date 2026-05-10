@@ -146,6 +146,14 @@ export function Composer({
             placeholderTextColor={t.colors.inkTertiary}
             multiline
             autoFocus={autoFocus}
+            // Suppress the iOS predictive / "Done" accessory bar — the
+            // composer has its own send + dismiss affordances.
+            autoCorrect={false}
+            spellCheck={false}
+            autoCapitalize="sentences"
+            keyboardAppearance={t.isDark ? "dark" : "light"}
+            returnKeyType="default"
+            blurOnSubmit={false}
             style={{
               flex: 1,
               color: t.colors.inkPrimary,
