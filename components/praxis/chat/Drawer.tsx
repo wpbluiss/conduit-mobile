@@ -19,11 +19,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
   MagnifyingGlass,
-  Stack as StackIcon,
+  Code,
   UsersThree,
+  Brain,
   GearSix,
   PencilSimple,
   PushPinSimple,
+  CaretRight,
 } from "phosphor-react-native";
 import { formatDistanceToNow, isToday, isYesterday, subDays } from "date-fns";
 import * as Haptics from "expo-haptics";
@@ -31,6 +33,7 @@ import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 import { EmployeeAvatar } from "../EmployeeAvatar";
 import { EMPLOYEE_LIST, type EmployeeId } from "../../../lib/conduit/employees";
+import { useAuthStore } from "../../../store/authStore";
 import type { Conversation } from "../../../lib/conduit/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -88,6 +91,7 @@ export function Drawer({
   const t = usePraxisTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuthStore();
 
   const progress = useSharedValue(0);
   const [search, setSearch] = React.useState("");
@@ -144,10 +148,19 @@ export function Drawer({
   };
 
   const goRoute = (path: string) => {
-    Haptics.selectionAsync().catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     onClose();
     setTimeout(() => router.push(path as never), 160);
   };
+
+  const userEmail = user?.email ?? "";
+  const userInitial = (
+    (user?.user_metadata as Record<string, unknown> | undefined)?.full_name as
+      | string
+      | undefined
+  )?.charAt(0)
+    ?? user?.email?.charAt(0)
+    ?? "•";
 
   return (
     <View
@@ -192,7 +205,6 @@ export function Drawer({
             borderRightWidth: 0.5,
             borderRightColor: t.colors.borderSubtle,
             paddingTop: insets.top + 8,
-            paddingBottom: Math.max(insets.bottom, 12),
           },
           drawerStyle,
         ]}
@@ -331,20 +343,9 @@ export function Drawer({
               borderTopColor: t.colors.borderSubtle,
             }}
           >
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                paddingHorizontal: 4,
-                paddingBottom: 8,
-              }}
-            >
-              <PushPinSimple size={11} color={t.colors.inkTertiary} weight="fill" />
-              <Text variant="caption" tone="tertiary" weight="semibold">
-                PINNED
-              </Text>
-            </View>
+            <SectionLabel icon={<PushPinSimple size={11} color={t.colors.inkTertiary} weight="fill" />}>
+              PINNED
+            </SectionLabel>
             {PINNED.map((id) => {
               const e = EMPLOYEE_LIST.find((emp) => emp.id === id);
               if (!e) return null;
@@ -375,47 +376,126 @@ export function Drawer({
               );
             })}
           </View>
+
+          <View
+            style={{
+              marginTop: 16,
+              marginHorizontal: 14,
+              paddingTop: 14,
+              borderTopWidth: 0.5,
+              borderTopColor: t.colors.borderSubtle,
+            }}
+          >
+            <SectionLabel>WORKSPACE</SectionLabel>
+            <WorkspaceRow
+              icon={<Code size={16} color={t.colors.inkSecondary} weight="regular" />}
+              label="Builds"
+              onPress={() => goRoute("/(app)/builds")}
+            />
+            <WorkspaceRow
+              icon={<UsersThree size={16} color={t.colors.inkSecondary} weight="regular" />}
+              label="Team"
+              onPress={() => goRoute("/(app)/team")}
+            />
+            <WorkspaceRow
+              icon={<Brain size={16} color={t.colors.inkSecondary} weight="regular" />}
+              label="Memory"
+              onPress={() => goRoute("/(app)/settings/memory")}
+            />
+            <WorkspaceRow
+              icon={<GearSix size={16} color={t.colors.inkSecondary} weight="regular" />}
+              label="Settings"
+              onPress={() => goRoute("/(app)/settings")}
+            />
+          </View>
         </ScrollView>
 
-        <View
-          style={{
+        <Pressable
+          onPress={() => goRoute("/(app)/settings/account")}
+          style={({ pressed }) => ({
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "space-around",
+            gap: 10,
             paddingHorizontal: 16,
-            paddingTop: 12,
+            paddingVertical: 12,
+            paddingBottom: Math.max(insets.bottom, 12) + 6,
             borderTopWidth: 0.5,
             borderTopColor: t.colors.borderSubtle,
-          }}
+            backgroundColor: pressed ? t.colors.bgElevated : "transparent",
+          })}
         >
-          <RailButton
-            label="Builds"
-            icon={<StackIcon size={18} color={t.colors.inkSecondary} />}
-            onPress={() => goRoute("/(app)/builds")}
-          />
-          <RailButton
-            label="Team"
-            icon={<UsersThree size={18} color={t.colors.inkSecondary} />}
-            onPress={() => goRoute("/(app)/team")}
-          />
-          <RailButton
-            label="Settings"
-            icon={<GearSix size={18} color={t.colors.inkSecondary} />}
-            onPress={() => goRoute("/(app)/settings")}
-          />
-        </View>
+          <View
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: t.colors.indigoSoft,
+              borderWidth: 1,
+              borderColor: t.colors.indigo300,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              variant="bodySm"
+              family="display"
+              weight="semibold"
+              style={{ color: t.colors.indigo500 }}
+            >
+              {userInitial.toUpperCase()}
+            </Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text variant="bodySm" weight="medium" numberOfLines={1}>
+              {userEmail || "Account"}
+            </Text>
+            <Text
+              variant="caption"
+              tone="tertiary"
+              style={{ letterSpacing: 0, marginTop: 1 }}
+            >
+              Manage account
+            </Text>
+          </View>
+          <CaretRight size={14} color={t.colors.inkTertiary} weight="bold" />
+        </Pressable>
       </Animated.View>
     </View>
   );
 }
 
-function RailButton({
-  label,
+function SectionLabel({
+  children,
   icon,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 4,
+        paddingBottom: 8,
+      }}
+    >
+      {icon}
+      <Text variant="caption" tone="tertiary" weight="semibold">
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+function WorkspaceRow({
+  icon,
+  label,
   onPress,
 }: {
-  label: string;
   icon: React.ReactNode;
+  label: string;
   onPress: () => void;
 }) {
   const t = usePraxisTheme();
@@ -423,23 +503,31 @@ function RailButton({
     <Pressable
       onPress={onPress}
       style={({ pressed }) => ({
-        flex: 1,
+        flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 8,
-        gap: 4,
+        gap: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 10,
         borderRadius: t.radii.md,
         backgroundColor: pressed ? t.colors.bgElevated : "transparent",
       })}
     >
-      {icon}
-      <Text
-        variant="caption"
-        tone="secondary"
-        weight="medium"
-        style={{ letterSpacing: 0.4, fontSize: 10 }}
+      <View
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 8,
+          backgroundColor: t.colors.bgElevated,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
-        {label.toUpperCase()}
+        {icon}
+      </View>
+      <Text variant="bodySm" weight="medium" style={{ flex: 1 }}>
+        {label}
       </Text>
+      <CaretRight size={12} color={t.colors.inkTertiary} weight="bold" />
     </Pressable>
   );
 }
