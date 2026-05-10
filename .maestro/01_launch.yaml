@@ -1,0 +1,14 @@
+## 01 — App launches and lands on the chat surface.
+##
+## Smoke test: the app must boot to a chat screen (active resume or empty
+## welcome) without crashing. We don't pin to a specific copy because the
+## active resume routes into recent thread titles which vary by user.
+appId: io.conduitai.app
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 8000
+- assertVisible:
+    id: ".*"            # Any element rendered = no crash on cold-start
+- assertVisible: "Praxis|New conversation|Conversation|Good (morning|afternoon|evening|Late night)"

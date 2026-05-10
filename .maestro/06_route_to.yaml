@@ -1,0 +1,25 @@
+## 06 — ROUTE TO grid on the welcome state opens a fresh thread (BUG B).
+##
+## Build 13 had ROUTE TO rows wired to nothing. Post-fix, tapping a row
+## navigates to /chat/new and pre-fills @<Name> in the composer.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+
+# Surface the welcome state by starting a fresh thread.
+- tapOn:
+    point: "95%,7%"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# ROUTE TO header should be visible alongside The team and Atlas rows.
+- assertVisible: "ROUTE TO"
+- assertVisible: "The team"
+- assertVisible: "Atlas"
+
+# Tap Engineering — must navigate and pre-fill the composer with @Engineering.
+- tapOn: "Engineering"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "@Engineering|Routing to Engineering"
+- assertNotVisible: "SOMETHING WENT WRONG"

@@ -1,0 +1,34 @@
+## 08 — Settings index renders, sub-screens load.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Settings"
+- waitForAnimationToEnd:
+    timeout: 3000
+- assertVisible: "Settings"
+
+# Account
+- tapOn: "Account"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "Account"
+- back
+
+# Appearance
+- tapOn: "Appearance"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "Appearance"
+- back
+
+# Voice prefs
+- tapOn:
+    text: "Voice"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 2000
+
+- assertNotVisible: "SOMETHING WENT WRONG"

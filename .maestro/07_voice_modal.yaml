@@ -1,0 +1,28 @@
+## 07 — Voice modal opens and dismisses cleanly.
+##
+## Mic button is the right edge of the composer when the input is empty.
+## After it morphs into a voice modal, we close it via the system gesture
+## (swipe down on a presentation modal) — Maestro maps that to a swipe.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+
+# Make sure composer is empty so the mic icon (not the send arrow) is
+# visible. Tap any visible text in case there's a draft, clear it.
+- tapOn:
+    point: "94%,92%"    # mic / send button area
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Voice modal renders the eclipse aurora background — no chat top bar.
+- assertNotVisible: "PRAXIS CONSOLE"
+- assertNotVisible: "SOMETHING WENT WRONG"
+
+# Dismiss with a downward swipe from near the top.
+- swipe:
+    start: "50%,15%"
+    end: "50%,90%"
+    duration: 350
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "PRAXIS CONSOLE"

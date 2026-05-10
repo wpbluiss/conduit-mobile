@@ -1,0 +1,22 @@
+## 10 — Team index renders the 9-employee grid.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Team"
+- waitForAnimationToEnd:
+    timeout: 4000
+
+# All 9 employees + Atlas should be discoverable.
+- assertVisible: "Atlas"
+- assertVisible: "Engineering"
+- assertVisible: "Sales"
+- assertVisible: "Marketing"
+- assertVisible: "Finance"
+- assertVisible: "Compliance"
+- assertVisible: "HR|People"
+- assertVisible: "Ops"
+- assertVisible: "Legal"
+- assertNotVisible: "SOMETHING WENT WRONG"

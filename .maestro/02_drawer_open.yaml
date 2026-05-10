@@ -1,0 +1,14 @@
+## 02 — Drawer opens via the menu (hamburger) button on the top bar and
+## reveals the CONVERSATIONS heading.
+##
+## Note: swipe-from-edge is not implemented on this build — the drawer is
+## tap-only via the List icon in ChatTopBar. This flow validates that
+## entry path. (Swipe support is tracked as a future enhancement.)
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+- tapOn:
+    point: "5%,7%"      # The hamburger sits in the top-left of ChatTopBar
+- assertVisible: "CONVERSATIONS"
+- assertVisible: "PINNED"
+- assertVisible: "WORKSPACE"

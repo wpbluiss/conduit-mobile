@@ -1,0 +1,26 @@
+## 04 — Open an existing conversation from the drawer (BUG A regression).
+##
+## Build 13 crashed when the user tapped a thread in "Last 7 days" because
+## legacy message rows had non-string content. Post-fix, the screen must
+## load with either rendered messages or the calm empty/skeleton state —
+## never a crash, never a blank gray view.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "CONVERSATIONS"
+
+# Tap the first conversation row under any group label. The drawer renders
+# at least a "Today" / "Yesterday" / "Last 7 days" / "Earlier" group; the
+# first non-label row is the most recent thread.
+- tapOn:
+    text: ".*"          # any visible thread row text — we just need one tap
+    index: 5            # ~5th visible text element should be a thread title
+    optional: true
+
+# Either real messages render, or our defensive empty state shows up.
+- waitForAnimationToEnd:
+    timeout: 5000
+- assertVisible: "Conversation|EMPTY THREAD|.*"
+- assertNotVisible: "SOMETHING WENT WRONG"

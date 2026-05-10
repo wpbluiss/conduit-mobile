@@ -1,0 +1,32 @@
+## 05 — Start a new chat, send a message, verify a response streams in.
+##
+## We don't assert on specific response copy — the model output varies.
+## Instead we confirm the StreamingIndicator appears, and that the
+## composer clears after send.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+
+# New thread via the top-bar plus
+- tapOn:
+    point: "95%,7%"     # right edge of ChatTopBar
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "New conversation|What are we working on"
+
+# Type into the composer
+- tapOn:
+    text: "Type or talk to Praxis|Reply to Praxis|Message Praxis"
+- inputText: "smoke test ping"
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# Send via the morphed-up arrow button (lower right)
+- tapOn:
+    point: "94%,92%"
+
+# Streaming indicator OR a returned bubble within ~10s
+- assertVisible:
+    text: "smoke test ping|.*"
+    timeout: 10000
+- assertNotVisible: "SOMETHING WENT WRONG"

@@ -1,0 +1,56 @@
+## 03 — Each drawer route lands on the right screen.
+##
+## Workspace rail: Builds, Team, Memory, Settings. We check each by
+## reopening the drawer, tapping the row, and asserting the destination
+## screen renders.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+
+# Builds
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Builds"
+- waitForAnimationToEnd:
+    timeout: 4000
+- assertVisible: "Builds"
+
+# Back to chat, then Team
+- tapOn:
+    point: "5%,7%"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Team"
+- waitForAnimationToEnd:
+    timeout: 4000
+- assertVisible: "Team|Atlas|Engineering"
+
+# Memory
+- tapOn:
+    point: "5%,7%"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Memory"
+- waitForAnimationToEnd:
+    timeout: 4000
+- assertVisible: "Memory"
+
+# Settings
+- tapOn:
+    point: "5%,7%"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Settings"
+- waitForAnimationToEnd:
+    timeout: 4000
+- assertVisible: "Settings|Account|Appearance"

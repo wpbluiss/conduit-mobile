@@ -1,0 +1,12 @@
+## 09 — Builds index loads with empty state or list.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+- tapOn:
+    point: "5%,7%"
+- assertVisible: "WORKSPACE"
+- tapOn: "Builds"
+- waitForAnimationToEnd:
+    timeout: 4000
+- assertVisible: "Builds"
+- assertNotVisible: "SOMETHING WENT WRONG"

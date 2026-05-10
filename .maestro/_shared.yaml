@@ -1,0 +1,10 @@
+## Shared Maestro setup. Sourced via runScript / called via runFlow from each
+## test so the launch + sign-in shortcut lives in one place. Tests assume the
+## test user is already signed in via TestFlight; if signed out, the
+## runner kicks the suite manually after sign-in.
+appId: io.conduitai.app
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 6000
