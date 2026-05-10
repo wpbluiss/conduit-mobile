@@ -17,36 +17,45 @@ type Segment =
   | { type: "text"; text: string }
   | { type: "code"; lang: string; code: string };
 
-function segmentMarkdown(input: string): Segment[] {
+function segmentMarkdown(input: unknown): Segment[] {
+  // Defensive: legacy rows may have non-string content even after
+  // normalization slips. Render gracefully instead of crashing on .slice().
+  const text = typeof input === "string" ? input : input == null ? "" : String(input);
+  if (!text) return [];
+
   const segments: Segment[] = [];
   const fence = /```(\w*)\n?([\s\S]*?)```/g;
   let last = 0;
   let m: RegExpExecArray | null;
-  while ((m = fence.exec(input))) {
+  while ((m = fence.exec(text))) {
     if (m.index > last) {
-      segments.push({ type: "text", text: input.slice(last, m.index) });
+      segments.push({ type: "text", text: text.slice(last, m.index) });
     }
-    segments.push({ type: "code", lang: m[1] ?? "", code: m[2].trimEnd() });
+    segments.push({ type: "code", lang: m[1] ?? "", code: (m[2] ?? "").trimEnd() });
     last = m.index + m[0].length;
   }
-  if (last < input.length) {
-    segments.push({ type: "text", text: input.slice(last) });
+  if (last < text.length) {
+    segments.push({ type: "text", text: text.slice(last) });
   }
   return segments;
 }
 
 export function MessageBubble({ role, content, employee, pending }: MessageBubbleProps) {
   const t = usePraxisTheme();
-  const isUser = role === "user";
+  const safeRole: MessageBubbleProps["role"] =
+    role === "user" || role === "assistant" || role === "system" || role === "tool"
+      ? role
+      : "assistant";
+  const isUser = safeRole === "user";
   const employeeCfg = !isUser ? getEmployee(employee ?? null) : null;
 
   const segments = useMemo(() => segmentMarkdown(content), [content]);
 
-  if (role === "tool" || role === "system") {
+  if (safeRole === "tool" || safeRole === "system") {
     return (
       <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
         <Text variant="caption" tone="tertiary" align="center">
-          {content}
+          {typeof content === "string" ? content : ""}
         </Text>
       </View>
     );

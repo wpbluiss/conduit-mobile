@@ -11,6 +11,9 @@ import { WelcomeState } from "./WelcomeState";
 import { EmployeePicker } from "./EmployeePicker";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
+import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
+import { ChatEmptyState } from "./ChatEmptyState";
+import { ErrorBoundary } from "../ErrorBoundary";
 import {
   appendUserMessage,
   createConversation,
@@ -47,13 +50,16 @@ export interface ChatShellProps {
   /** Pre-fill the composer with this text (e.g. via deep link). */
   initialDraft?: string;
   /** Force route into a specific employee (for pinned employee taps). */
-  preferredEmployee?: EmployeeId | null;
+  preferredEmployee?: EmployeeId | "team" | null;
+  /** Auto-focus the composer when the screen mounts. */
+  autoFocus?: boolean;
 }
 
 export function ChatShell({
   conversationId,
   initialDraft,
   preferredEmployee,
+  autoFocus,
 }: ChatShellProps) {
   const t = usePraxisTheme();
   const router = useRouter();
@@ -61,6 +67,9 @@ export function ChatShell({
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState<boolean>(
+    !!conversationId,
+  );
   const [streaming, setStreaming] = useState<{
     content: string;
     employee: EmployeeId | "team" | null;
@@ -109,15 +118,24 @@ export function ChatShell({
     if (!conversationId) {
       setConversation(null);
       setMessages([]);
+      setLoadingMessages(false);
       conversationIdRef.current = null;
       return;
     }
+    setLoadingMessages(true);
     (async () => {
       const result = await getConversation(conversationId);
-      if (!alive || !result) return;
+      if (!alive) return;
+      if (!result) {
+        setConversation(null);
+        setMessages([]);
+        setLoadingMessages(false);
+        return;
+      }
       setConversation(result.conversation);
       setMessages(result.messages);
       conversationIdRef.current = result.conversation.id;
+      setLoadingMessages(false);
     })();
     return () => {
       alive = false;
@@ -135,6 +153,17 @@ export function ChatShell({
     });
     return unsub;
   }, [conversation?.id]);
+
+  // Apply preferredEmployee/initialDraft when params change (deep links).
+  useEffect(() => {
+    if (preferredEmployee !== undefined) {
+      setRoutedEmployee(preferredEmployee ?? null);
+    }
+  }, [preferredEmployee]);
+
+  useEffect(() => {
+    if (initialDraft !== undefined) setComposerDraft(initialDraft);
+  }, [initialDraft]);
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -229,14 +258,21 @@ export function ChatShell({
   };
 
   const onSelectEmployeeFromDrawer = (id: EmployeeId) => {
-    setRoutedEmployee(id);
-    setComposerDraft(`@${EMPLOYEES[id].name} `);
-    if (conversation) {
-      router.push("/(app)/chat/new" as never);
-    }
+    // From drawer: route to a fresh thread with the employee pre-mentioned.
+    router.push(`/(app)/chat/new?employee=${id}` as never);
   };
 
   const onPickerSelect = (id: EmployeeId | "team") => {
+    // From the in-chat ROUTE TO sheet: if there's already a thread, start a
+    // new one. Otherwise we're on a blank slate — apply the routing in place.
+    if (conversation) {
+      const target =
+        id === "team"
+          ? "/(app)/chat/new?broadcast=true"
+          : `/(app)/chat/new?employee=${id}`;
+      router.push(target as never);
+      return;
+    }
     setRoutedEmployee(id);
     if (id === "team") {
       setComposerDraft((prev) => prev ?? "");
@@ -247,6 +283,8 @@ export function ChatShell({
 
   const isStreaming = waiting || !!streaming;
   const isEmpty = !conversation && messages.length === 0;
+  const isLoadedEmptyConversation =
+    !!conversation && !loadingMessages && messages.length === 0;
 
   const headerTitle = conversation?.title
     ? conversation.title
@@ -279,20 +317,36 @@ export function ChatShell({
       />
 
       <View style={{ flex: 1 }}>
-        {isEmpty ? (
-          <WelcomeState
-            greeting={greeting()}
-            displayName={displayName}
-            suggestions={SUGGESTIONS}
-            onSelectSuggestion={(s) => setComposerDraft(s)}
-          />
-        ) : (
-          <MessageList
-            messages={messages}
-            streaming={streaming}
-            isWaiting={waiting}
-          />
-        )}
+        <ErrorBoundary resetKey={conversation?.id ?? "new"}>
+          {isEmpty ? (
+            <WelcomeState
+              greeting={greeting()}
+              displayName={displayName}
+              suggestions={SUGGESTIONS}
+              onSelectSuggestion={(s) => setComposerDraft(s)}
+              onSelectEmployee={(id) =>
+                router.push(
+                  id === "team"
+                    ? ("/(app)/chat/new?broadcast=true" as never)
+                    : (`/(app)/chat/new?employee=${id}` as never),
+                )
+              }
+            />
+          ) : loadingMessages ? (
+            <ChatLoadingSkeleton />
+          ) : isLoadedEmptyConversation ? (
+            <ChatEmptyState
+              title={conversation?.title ?? "New conversation"}
+              onStart={(text) => setComposerDraft(text)}
+            />
+          ) : (
+            <MessageList
+              messages={messages}
+              streaming={streaming}
+              isWaiting={waiting}
+            />
+          )}
+        </ErrorBoundary>
       </View>
 
       <Composer
@@ -301,6 +355,7 @@ export function ChatShell({
         onPlusPress={() => setPickerOpen(true)}
         streaming={isStreaming}
         initialValue={composerDraft}
+        autoFocus={autoFocus}
         placeholder={
           isEmpty ? "Type or talk to Praxis…" : "Reply to Praxis…"
         }

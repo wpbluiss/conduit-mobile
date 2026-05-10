@@ -1,5 +1,10 @@
 import { supabase } from "../supabase";
 import { getOrCreateAccount } from "./account";
+import {
+  normalizeConversation,
+  normalizeMessage,
+  normalizeMessages,
+} from "./normalize";
 import type { Conversation, Message } from "./types";
 
 export async function listConversations(): Promise<Conversation[]> {
@@ -17,7 +22,9 @@ export async function listConversations(): Promise<Conversation[]> {
     console.warn("[Conversations] list failed:", error.message);
     return [];
   }
-  return (data ?? []) as Conversation[];
+  return (data ?? [])
+    .map((row) => normalizeConversation(row))
+    .filter((c): c is Conversation => c !== null);
 }
 
 /** Return the most recent conversation, or null if none exist. */
@@ -37,7 +44,7 @@ export async function getMostRecentConversation(): Promise<Conversation | null> 
     console.warn("[Conversations] recent failed:", error.message);
     return null;
   }
-  return (data ?? null) as Conversation | null;
+  return normalizeConversation(data);
 }
 
 export async function getConversation(
@@ -49,40 +56,62 @@ export async function getConversation(
   const [convoRes, messagesRes] = await Promise.all([
     supabase
       .from("conduit_conversations")
-      .select("id, account_id, title, created_at, updated_at")
+      .select(
+        "id, account_id, title, created_at, updated_at, dominant_employee",
+      )
       .eq("id", id)
       .maybeSingle(),
     supabase
       .from("conduit_messages")
-      .select("id, conversation_id, role, employee, content, metadata, created_at")
+      .select("*")
       .eq("conversation_id", id)
       .order("created_at", { ascending: true }),
   ]);
 
-  const conversation = convoRes.data as Conversation | null;
+  if (convoRes.error) {
+    console.warn("[Conversations] get failed:", convoRes.error.message);
+    return null;
+  }
+  if (messagesRes.error) {
+    console.warn(
+      "[Conversations] messages fetch failed:",
+      messagesRes.error.message,
+    );
+    // Don't crash the screen — render the conversation with zero messages
+    // and let the empty state explain.
+  }
+
+  const conversation = normalizeConversation(convoRes.data);
   if (!conversation || conversation.account_id !== account.id) return null;
 
   return {
     conversation,
-    messages: (messagesRes.data ?? []) as Message[],
+    messages: normalizeMessages(messagesRes.data, conversation.id),
   };
 }
 
-export async function createConversation(title: string): Promise<Conversation | null> {
+export async function createConversation(
+  title: string,
+): Promise<Conversation | null> {
   const account = await getOrCreateAccount();
   if (!account) return null;
 
   const { data, error } = await supabase
     .from("conduit_conversations")
-    .insert({ account_id: account.id, title: title.slice(0, 60) || "New conversation" })
-    .select("id, account_id, title, created_at, updated_at")
+    .insert({
+      account_id: account.id,
+      title: title.slice(0, 60) || "New conversation",
+    })
+    .select(
+      "id, account_id, title, created_at, updated_at, dominant_employee",
+    )
     .single();
 
   if (error || !data) {
     console.warn("[Conversations] create failed:", error?.message);
     return null;
   }
-  return data as Conversation;
+  return normalizeConversation(data);
 }
 
 export async function deleteConversation(id: string): Promise<boolean> {
@@ -108,14 +137,14 @@ export async function appendUserMessage(
       role: "user",
       content,
     })
-    .select("id, conversation_id, role, employee, content, metadata, created_at")
+    .select("*")
     .single();
 
   if (error || !data) {
     console.warn("[Conversations] append message failed:", error?.message);
     return null;
   }
-  return data as Message;
+  return normalizeMessage(data, conversationId);
 }
 
 /** Subscribe to new messages on a conversation. Returns an unsubscribe fn. */
@@ -134,7 +163,7 @@ export function subscribeToMessages(
         filter: `conversation_id=eq.${conversationId}`,
       },
       (payload) => {
-        onMessage(payload.new as Message);
+        onMessage(normalizeMessage(payload.new, conversationId));
       },
     )
     .subscribe();

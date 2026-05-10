@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from "react";
 import { FlatList, View } from "react-native";
 import { MessageBubble } from "./MessageBubble";
 import { StreamingIndicator } from "./StreamingIndicator";
+import { ErrorBoundary } from "../ErrorBoundary";
+import { Text } from "../Text";
+import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import type { Message } from "../../../lib/conduit/types";
 import type { EmployeeId } from "../../../lib/conduit/employees";
 
@@ -11,11 +14,29 @@ export interface MessageListProps {
   isWaiting?: boolean;
 }
 
+function MessageRowFallback() {
+  const t = usePraxisTheme();
+  return (
+    <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
+      <Text variant="caption" tone="tertiary" align="center">
+        couldn't render this message — skipping
+      </Text>
+      <View
+        style={{
+          height: 0.5,
+          backgroundColor: t.colors.borderSubtle,
+          marginTop: 4,
+        }}
+      />
+    </View>
+  );
+}
+
 export function MessageList({ messages, streaming, isWaiting }: MessageListProps) {
   const listRef = useRef<FlatList<Message>>(null);
 
   useEffect(() => {
-    if (listRef.current) {
+    if (listRef.current && messages.length > 0) {
       listRef.current.scrollToEnd({ animated: true });
     }
   }, [messages.length, streaming?.content, isWaiting]);
@@ -24,16 +45,26 @@ export function MessageList({ messages, streaming, isWaiting }: MessageListProps
     <FlatList
       ref={listRef}
       data={messages}
-      keyExtractor={(m) => m.id}
+      keyExtractor={(m, i) =>
+        typeof m?.id === "string" || typeof m?.id === "number"
+          ? String(m.id)
+          : `msg-${i}`
+      }
       renderItem={({ item }) => (
-        <MessageBubble
-          role={item.role}
-          content={item.content}
-          employee={item.employee}
-        />
+        <ErrorBoundary fallback={() => <MessageRowFallback />}>
+          <MessageBubble
+            role={item.role}
+            content={item.content}
+            employee={item.employee}
+          />
+        </ErrorBoundary>
       )}
       contentContainerStyle={{ paddingVertical: 8 }}
-      onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+      onContentSizeChange={() => {
+        if (messages.length > 0) {
+          listRef.current?.scrollToEnd({ animated: true });
+        }
+      }}
       ListFooterComponent={
         streaming || isWaiting ? (
           <View>
