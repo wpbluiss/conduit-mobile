@@ -324,13 +324,6 @@ export function ChatShell({
               displayName={displayName}
               suggestions={SUGGESTIONS}
               onSelectSuggestion={(s) => setComposerDraft(s)}
-              onSelectEmployee={(id) =>
-                router.push(
-                  id === "team"
-                    ? ("/(app)/chat/new?broadcast=true" as never)
-                    : (`/(app)/chat/new?employee=${id}` as never),
-                )
-              }
             />
           ) : loadingMessages ? (
             <ChatLoadingSkeleton />
