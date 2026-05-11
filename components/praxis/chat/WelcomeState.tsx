@@ -40,9 +40,9 @@ export function WelcomeState({
             width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: t.colors.indigoSoft,
+            backgroundColor: t.colors.violet700,
             borderWidth: 1,
-            borderColor: t.colors.indigo300,
+            borderColor: t.colors.violet800,
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 18,
@@ -52,7 +52,7 @@ export function WelcomeState({
             variant="displayMd"
             family="display"
             weight="semibold"
-            style={{ color: t.colors.indigo500 }}
+            style={{ color: "#FFFFFF" }}
           >
             P
           </Text>

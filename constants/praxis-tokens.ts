@@ -31,6 +31,11 @@ export interface PraxisColors {
   indigo700: string;
   indigoSoft: string; // 14% — accent fill
 
+  // Violet (Praxis Console mark — deeper than indigo for confident brand)
+  violet600: string;
+  violet700: string;
+  violet800: string;
+
   // Ember (celebration only)
   ember: string;
 
@@ -67,6 +72,10 @@ const lightColors: PraxisColors = {
   indigo700: "#3D44C2",
   indigoSoft: "rgba(91, 99, 232, 0.10)",
 
+  violet600: "#7C3AED",
+  violet700: "#6D28D9",
+  violet800: "#5B21B6",
+
   ember: "#D67817",
 
   success: "#0E8A55",
@@ -99,6 +108,10 @@ const darkColors: PraxisColors = {
   indigo500: "#6E76EE",
   indigo700: "#5B63E8",
   indigoSoft: "rgba(168, 175, 251, 0.14)",
+
+  violet600: "#8B5CF6",
+  violet700: "#7C3AED",
+  violet800: "#6D28D9",
 
   ember: "#E08F31",
 
