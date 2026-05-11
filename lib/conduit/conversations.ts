@@ -152,8 +152,16 @@ export function subscribeToMessages(
   conversationId: string,
   onMessage: (msg: Message) => void,
 ): () => void {
+  // RealtimeClient.channel(topic) returns the EXISTING channel for the same
+  // topic. `removeChannel` is async (it waits for the leave-ack before popping
+  // the channel from the registry), so a fast remount of the chat screen can
+  // pick up the previous, still-draining channel — which has joinedOnce=true,
+  // causing `.on('postgres_changes', ...)` to throw "cannot add postgres_changes
+  // callbacks for {topic} after subscribe()". A per-subscription nonce
+  // guarantees a fresh channel every mount.
+  const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const channel = supabase
-    .channel(`conv-${conversationId}`)
+    .channel(`conv-${conversationId}:${nonce}`)
     .on(
       "postgres_changes",
       {
