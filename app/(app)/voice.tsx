@@ -1,21 +1,28 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { CaretDown, X, SpeakerHigh, SpeakerSlash } from "phosphor-react-native";
+import { useAudioPlayer } from "expo-audio";
+import {
+  CaretDown,
+  X,
+  SpeakerHigh,
+  SpeakerSlash,
+  Play,
+  Stop,
+} from "phosphor-react-native";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text } from "../../components/praxis";
 import { VoiceOrb, type OrbState } from "../../components/praxis/voice/VoiceOrb";
 import { Captions } from "../../components/praxis/voice/Captions";
 import {
-  appendUserMessage,
-  createConversation,
   getConversation,
   getMostRecentConversation,
 } from "../../lib/conduit/conversations";
-import { streamChat } from "../../lib/conduit/chat";
+import { synthesizeSpeech } from "../../lib/conduit/voice";
+import { writeBase64AudioToCache } from "../../lib/conduit/audioPlayback";
 import { getEmployee, type EmployeeId } from "../../lib/conduit/employees";
 
 export default function VoiceModalScreen() {
@@ -24,28 +31,28 @@ export default function VoiceModalScreen() {
 
   const [orbState, setOrbState] = useState<OrbState>("idle");
   const [employee, setEmployee] = useState<EmployeeId | "team" | null>(null);
-  const [lastUserText, setLastUserText] = useState<string>("");
-  const [assistantBuffer, setAssistantBuffer] = useState<string>("");
+  const [assistantText, setAssistantText] = useState<string>("");
+  const [audioUri, setAudioUri] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  const [synthesizing, setSynthesizing] = useState(false);
+  const synthedRef = useRef<string>("");
 
-  const conversationIdRef = useRef<string | null>(null);
-  const streamingTextRef = useRef("");
+  // The hook accepts null and just doesn't play anything until set.
+  const player = useAudioPlayer(audioUri);
 
-  // Pre-warm: pick the most recent conversation so messages have continuity.
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       (async () => {
         const recent = await getMostRecentConversation();
         if (!alive || !recent) return;
-        conversationIdRef.current = recent.id;
         const detail = await getConversation(recent.id);
         if (!alive || !detail) return;
         const lastAssistant = [...detail.messages]
           .reverse()
           .find((m) => m.role === "assistant");
         if (lastAssistant) {
-          setAssistantBuffer(lastAssistant.content);
+          setAssistantText(lastAssistant.content);
           if (lastAssistant.employee) setEmployee(lastAssistant.employee);
         }
       })();
@@ -55,72 +62,96 @@ export default function VoiceModalScreen() {
     }, []),
   );
 
-  const handleEnd = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    router.back();
-  };
-
-  const handleSend = useCallback(async (text: string) => {
-    setLastUserText(text);
-    setAssistantBuffer("");
+  // Generate TTS for any new assistant text, unless muted.
+  useEffect(() => {
+    if (muted) return;
+    if (!assistantText) return;
+    if (synthedRef.current === assistantText) return;
+    synthedRef.current = assistantText;
+    setSynthesizing(true);
     setOrbState("thinking");
-
-    let cid = conversationIdRef.current;
-    if (!cid) {
-      const created = await createConversation(text.slice(0, 60));
-      if (!created) {
+    (async () => {
+      const result = await synthesizeSpeech({
+        text: assistantText,
+        employee,
+      });
+      if (!result.ok) {
+        console.warn("[Voice] tts failed:", result.error);
+        setSynthesizing(false);
         setOrbState("idle");
         return;
       }
-      cid = created.id;
-      conversationIdRef.current = cid;
+      try {
+        const uri = writeBase64AudioToCache(result.audioBase64);
+        setAudioUri(uri);
+      } catch (e) {
+        console.warn("[Voice] failed to write audio:", e);
+      }
+      setSynthesizing(false);
+    })();
+  }, [assistantText, employee, muted]);
+
+  // When the player loads a new source, auto-play.
+  useEffect(() => {
+    if (!audioUri) return;
+    setOrbState("speaking");
+    player.play();
+  }, [audioUri, player]);
+
+  // Watch the player to flip orb back to idle when audio finishes.
+  useEffect(() => {
+    const sub = player.addListener("playbackStatusUpdate", (status) => {
+      if (status.didJustFinish) {
+        setOrbState("idle");
+      }
+    });
+    return () => sub.remove();
+  }, [player]);
+
+  const handleEnd = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    try {
+      player.pause();
+    } catch {}
+    router.back();
+  };
+
+  const togglePlay = () => {
+    if (!audioUri) return;
+    if (player.playing) {
+      player.pause();
+      setOrbState("idle");
+    } else {
+      player.seekTo(0);
+      player.play();
+      setOrbState("speaking");
     }
+  };
 
-    await appendUserMessage(cid, text);
-
-    streamingTextRef.current = "";
-    let resolvedEmployee: EmployeeId | "team" | null = null;
-
-    await streamChat(
-      { conversation_id: cid, message: text },
-      {
-        onMeta: (m) => {
-          if (m.employee) {
-            resolvedEmployee = m.employee as EmployeeId | "team";
-            setEmployee(resolvedEmployee);
-          }
-        },
-        onToken: (chunk) => {
-          if (streamingTextRef.current === "") setOrbState("speaking");
-          streamingTextRef.current += chunk;
-          setAssistantBuffer(streamingTextRef.current);
-        },
-        onError: (err) => {
-          console.warn("[Voice] stream error:", err.message);
-          setOrbState("idle");
-        },
-        onDone: () => {
-          setOrbState("idle");
-        },
-      },
-    );
-
-    setOrbState("idle");
-  }, []);
+  const toggleMute = () => {
+    setMuted((m) => {
+      const next = !m;
+      try {
+        if (next) player.pause();
+      } catch {}
+      return next;
+    });
+  };
 
   const employeeCfg = employee ? getEmployee(employee) : null;
   const speakerLabel = employeeCfg ? employeeCfg.name : "Atlas";
 
   const orbCaption = (() => {
+    if (synthesizing) return "Generating voice…";
     switch (orbState) {
-      case "listening":
-        return "Listening";
       case "thinking":
         return "Thinking";
       case "speaking":
         return "Speaking";
+      case "listening":
+        return "Listening";
       default:
-        return "Ready";
+        return assistantText ? "Tap play to hear it again" : "Nothing to play yet";
     }
   })();
 
@@ -182,7 +213,11 @@ export default function VoiceModalScreen() {
             </Text>
             <Text
               variant="bodySm"
-              style={{ color: "rgba(242,240,235,0.65)", marginTop: 2, letterSpacing: 0 }}
+              style={{
+                color: "rgba(242,240,235,0.65)",
+                marginTop: 2,
+                letterSpacing: 0,
+              }}
             >
               {orbCaption}
             </Text>
@@ -208,18 +243,12 @@ export default function VoiceModalScreen() {
             maxHeight: 240,
           }}
         >
-          {assistantBuffer ? (
-            <Captions speakerLabel={speakerLabel} text={assistantBuffer} />
-          ) : lastUserText ? (
-            <Captions
-              speakerLabel="You"
-              text={lastUserText}
-              tone="secondary"
-            />
+          {assistantText ? (
+            <Captions speakerLabel={speakerLabel} text={assistantText} />
           ) : (
             <Captions
-              speakerLabel="Ready"
-              text="Voice input arrives in the next build. Talk on web for now."
+              speakerLabel="Voice mode"
+              text="Open a chat, send a message, then return here — I'll play back the response in your selected voice. Spoken input arrives in R20."
               tone="secondary"
             />
           )}
@@ -237,7 +266,7 @@ export default function VoiceModalScreen() {
           }}
         >
           <Pressable
-            onPress={() => setMuted((m) => !m)}
+            onPress={toggleMute}
             style={({ pressed }) => ({
               width: 56,
               height: 56,
@@ -257,6 +286,28 @@ export default function VoiceModalScreen() {
               <SpeakerHigh size={22} color="#F2F0EB" />
             )}
           </Pressable>
+
+          {audioUri ? (
+            <Pressable
+              onPress={togglePlay}
+              style={({ pressed }) => ({
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: pressed
+                  ? "rgba(91, 99, 232, 0.85)"
+                  : "#5B63E8",
+                alignItems: "center",
+                justifyContent: "center",
+              })}
+            >
+              {player.playing ? (
+                <Stop size={26} color="#FFFFFF" weight="fill" />
+              ) : (
+                <Play size={26} color="#FFFFFF" weight="fill" />
+              )}
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={handleEnd}
