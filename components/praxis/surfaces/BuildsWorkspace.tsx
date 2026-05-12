@@ -49,7 +49,7 @@ export function BuildsWorkspace() {
         .eq("account_id", account.id)
         .is("archived_at", null)
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(5);
       if (!alive) return;
       if (!error && data) {
         setBuilds(data as BuildRow[]);

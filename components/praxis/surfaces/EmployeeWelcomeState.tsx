@@ -23,6 +23,11 @@ export function EmployeeWelcomeState({
   const surface = EMPLOYEE_SURFACES[employee];
   if (!surface) return null;
 
+  // For Atlas, the daily brief is the headline; chips sit beneath it.
+  // For everyone else the chips come first — they're the affordance the
+  // user actually leans on, and the surface is supporting context.
+  const briefFirst = employee === "atlas";
+
   return (
     <ScrollView
       contentContainerStyle={{
@@ -33,15 +38,31 @@ export function EmployeeWelcomeState({
       showsVerticalScrollIndicator={false}
     >
       <EmployeeHero surface={surface} />
-      <QuickChips
-        chips={surface.quickChips}
-        accent={surface.accentColor}
-        accentSoft={surface.accentSoft}
-        onSelectChip={onSelectChip}
-      />
-      <View style={{ marginTop: 16 }}>
-        <EmployeeWorkspace employee={employee} />
-      </View>
+      {briefFirst ? (
+        <>
+          <View style={{ marginBottom: 16 }}>
+            <EmployeeWorkspace employee={employee} />
+          </View>
+          <QuickChips
+            chips={surface.quickChips}
+            accent={surface.accentColor}
+            accentSoft={surface.accentSoft}
+            onSelectChip={onSelectChip}
+          />
+        </>
+      ) : (
+        <>
+          <QuickChips
+            chips={surface.quickChips}
+            accent={surface.accentColor}
+            accentSoft={surface.accentSoft}
+            onSelectChip={onSelectChip}
+          />
+          <View style={{ marginTop: 16 }}>
+            <EmployeeWorkspace employee={employee} />
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
