@@ -5,7 +5,7 @@ import { Link, useRouter } from "expo-router";
 import { Envelope, Lock } from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
-import { Text, Button, Input } from "../../components/praxis";
+import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
 
 export default function SignInScreen() {
   const t = usePraxisTheme();
@@ -51,9 +51,19 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ marginBottom: 56 }}>
-            <Text variant="caption" tone="indigo" weight="semibold" style={{ marginBottom: 8 }}>
-              CONDUIT
-            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              <PraxisLogo size={28} />
+              <Text variant="caption" tone="indigo" weight="semibold">
+                PRAXIS CONSOLE
+              </Text>
+            </View>
             <Text variant="displayXl" family="display" weight="semibold">
               Praxis Console
             </Text>

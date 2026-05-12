@@ -5,7 +5,7 @@ import { Link, useRouter, Stack } from "expo-router";
 import { Envelope, Lock, User } from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
-import { Text, Button, Input } from "../../components/praxis";
+import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
 
 export default function SignUpScreen() {
   const t = usePraxisTheme();
@@ -59,9 +59,19 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={{ marginBottom: 40 }}>
-            <Text variant="caption" tone="indigo" weight="semibold" style={{ marginBottom: 8 }}>
-              CREATE ACCOUNT
-            </Text>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              <PraxisLogo size={28} />
+              <Text variant="caption" tone="indigo" weight="semibold">
+                CREATE ACCOUNT
+              </Text>
+            </View>
             <Text variant="displayLg" family="display" weight="semibold">
               Spin up your Praxis.
             </Text>
