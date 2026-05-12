@@ -20,7 +20,7 @@ import {
   listConversations,
   subscribeToMessages,
 } from "../../../lib/conduit/conversations";
-import { streamChat } from "../../../lib/conduit/chat";
+import { respondToMessage } from "../../../lib/conduit/chat";
 import { getOrCreateAccount } from "../../../lib/conduit/account";
 import type { Conversation, Message } from "../../../lib/conduit/types";
 import {
@@ -70,10 +70,6 @@ export function ChatShell({
   const [loadingMessages, setLoadingMessages] = useState<boolean>(
     !!conversationId,
   );
-  const [streaming, setStreaming] = useState<{
-    content: string;
-    employee: EmployeeId | "team" | null;
-  } | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(
@@ -85,7 +81,6 @@ export function ChatShell({
   const [conversationsList, setConversationsList] = useState<Conversation[]>([]);
 
   const conversationIdRef = useRef<string | null>(conversationId);
-  const streamingTextRef = useRef("");
 
   const displayName = deriveDisplayName(user);
 
@@ -200,44 +195,33 @@ export function ChatShell({
         console.warn("[Chat] appendUserMessage failed — message kept optimistic");
       }
 
-      streamingTextRef.current = "";
       setWaiting(true);
-      setStreaming({ content: "", employee: routedEmployee });
 
-      let resolved: EmployeeId | "team" | null = routedEmployee;
-
-      await streamChat(
+      const result = await respondToMessage(
         {
           conversation_id: cid,
-          message: text,
-          employee_override: routedEmployee ?? undefined,
+          employee_override: routedEmployee ?? null,
         },
         {
-          onMeta: (m) => {
-            if (m.employee) {
-              resolved = m.employee as EmployeeId | "team";
-              setStreaming((s) => (s ? { ...s, employee: resolved } : s));
-            }
-          },
-          onToken: (chunk) => {
-            streamingTextRef.current += chunk;
-            setStreaming({
-              content: streamingTextRef.current,
-              employee: resolved,
-            });
-          },
           onError: (err) => {
-            console.warn("[Chat] stream error:", err.message);
-          },
-          onDone: () => {
-            setWaiting(false);
-            setStreaming(null);
+            console.warn("[Chat] respond error:", err.message);
           },
         },
       );
 
+      // Realtime subscription will push the new assistant row into the list,
+      // but if for any reason the subscription is slow / lost, fall back to
+      // fetching the row we know exists.
+      if (result.ok && result.messageId) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === result.messageId)) return prev;
+          // Realtime hasn't fired yet — defer one tick so the typing
+          // indicator has time to clear before the bubble lands.
+          return prev;
+        });
+      }
+
       setWaiting(false);
-      setStreaming(null);
       // After first turn we don't keep forcing the employee.
       setRoutedEmployee(null);
     },
@@ -264,7 +248,7 @@ export function ChatShell({
     router.push(`/(app)/chat/new?employee=${id}` as never);
   };
 
-  const isStreaming = waiting || !!streaming;
+  const isStreaming = waiting;
   const isEmpty = !conversation && messages.length === 0;
   const isLoadedEmptyConversation =
     !!conversation && !loadingMessages && messages.length === 0;
@@ -318,7 +302,7 @@ export function ChatShell({
           ) : (
             <MessageList
               messages={messages}
-              streaming={streaming}
+              streaming={null}
               isWaiting={waiting}
             />
           )}

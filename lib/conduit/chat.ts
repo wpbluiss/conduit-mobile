@@ -1,149 +1,114 @@
-import { authedFetch } from "./api";
+// Chat responder client.
+//
+// R19: The previous flow streamed SSE tokens from conduitai.io and relied on
+// the web responder to persist the assistant message. The web responder has
+// been silent since 2026-05-07 (confirmed in conduit_messages — only user
+// rows since). React Native's fetch also does not expose `response.body` as
+// a ReadableStream, so SSE was already shaky on iOS/Hermes.
+//
+// New path: mobile POSTs to the Supabase Edge Function `chat-respond`,
+// which calls Anthropic and inserts the assistant row directly. The mobile
+// client already subscribes to INSERTs on `conduit_messages` via Realtime,
+// so the new row surfaces in the UI without any streaming plumbing.
+//
+// Trade-off: no token-by-token streaming, just a typing indicator → full
+// bubble drop. Acceptable for the 1-3s typical Anthropic latency; gives us
+// a reliable loop tonight instead of a flaky stream.
+
+import { supabase } from "../supabase";
 import type { EmployeeId } from "./employees";
 
-/**
- * Stream a chat completion via SSE.
- *
- * The web endpoint at POST /api/conduit/chat returns a text/event-stream
- * with events:
- *  - meta: { conversation_id, employee, intent }
- *  - token: { text }
- *  - tool_call: { name, args }
- *  - artifact: { kind, content }
- *  - memory: { kind, content }
- *  - tts_chunk: { audio_b64, mime }
- *  - error: { message }
- *  - done: { tokens_used }
- *
- * On RN, fetch streams via response.body.getReader() — supported in Hermes/RN 0.74+.
- */
-
-export interface ChatStreamEvent {
-  type: string;
-  data: any;
-}
-
-export interface ChatStreamHandlers {
-  onMeta?: (data: { conversation_id: string; employee?: string }) => void;
-  onToken?: (text: string) => void;
-  onToolCall?: (call: { name: string; args: unknown }) => void;
-  onArtifact?: (artifact: { kind: string; content: string }) => void;
-  onMemory?: (mem: { kind: string; content: string }) => void;
-  onTtsChunk?: (chunk: { audio_b64: string; mime?: string }) => void;
-  onDone?: (info: { tokens_used?: number; conversation_id?: string }) => void;
+export interface RespondHandlers {
+  onEmployeeResolved?: (employee: EmployeeId | "team") => void;
   onError?: (err: { message: string }) => void;
+  onDone?: (info: { message_id?: string; employee?: EmployeeId | "team" }) => void;
 }
 
-export async function streamChat(
-  body: {
-    conversation_id?: string;
-    message: string;
-    employee_override?: EmployeeId | "team";
-  },
-  handlers: ChatStreamHandlers,
-): Promise<{ aborted: boolean; conversationId?: string }> {
-  let aborted = false;
-  let lastConversationId = body.conversation_id;
+export interface RespondParams {
+  conversation_id: string;
+  employee_override?: EmployeeId | "team" | null;
+}
 
+interface RespondOk {
+  ok: true;
+  message_id: string;
+  employee: EmployeeId | "team";
+}
+interface RespondErr {
+  ok: false;
+  error: string;
+  detail?: string;
+  hint?: string;
+}
+
+/**
+ * Invoke the chat-respond Edge Function. Returns when the assistant message
+ * has been inserted (or an error has occurred). The actual rendering happens
+ * via the Realtime subscription on conduit_messages.
+ */
+export async function respondToMessage(
+  params: RespondParams,
+  handlers: RespondHandlers = {},
+): Promise<{ ok: boolean; messageId?: string; employee?: EmployeeId | "team" }> {
   try {
-    const response = await authedFetch("/api/conduit/chat", {
-      method: "POST",
-      body: JSON.stringify(body),
-      headers: { Accept: "text/event-stream" },
-    });
+    const { data, error } = await supabase.functions.invoke<RespondOk | RespondErr>(
+      "chat-respond",
+      {
+        body: {
+          conversation_id: params.conversation_id,
+          employee_override: params.employee_override ?? null,
+        },
+      },
+    );
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
+    if (error) {
+      const message = error.message || "respond_invoke_failed";
+      // Functions sometimes return non-2xx with a JSON body; surface that
+      // detail instead of the generic SDK message.
+      const ctx = (error as { context?: { response?: Response } }).context;
+      const responseBody = await readErrorBody(ctx?.response);
       handlers.onError?.({
-        message: `HTTP ${response.status}: ${text || response.statusText}`,
+        message: responseBody?.error
+          ? `${responseBody.error}${responseBody.detail ? `: ${responseBody.detail}` : ""}`
+          : message,
       });
-      return { aborted: true };
+      console.warn("[chat] respondToMessage error:", message, responseBody);
+      return { ok: false };
     }
 
-    if (!response.body) {
-      handlers.onError?.({ message: "Empty response body" });
-      return { aborted: true };
+    if (!data || !("ok" in data)) {
+      handlers.onError?.({ message: "empty_response_from_responder" });
+      return { ok: false };
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // SSE: events separated by blank line
-      let idx: number;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
-        const raw = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        const event = parseSseBlock(raw);
-        if (!event) continue;
-
-        switch (event.type) {
-          case "meta":
-            if (event.data?.conversation_id) {
-              lastConversationId = event.data.conversation_id;
-            }
-            handlers.onMeta?.(event.data);
-            break;
-          case "token":
-            if (typeof event.data?.text === "string") {
-              handlers.onToken?.(event.data.text);
-            }
-            break;
-          case "tool_call":
-            handlers.onToolCall?.(event.data);
-            break;
-          case "artifact":
-            handlers.onArtifact?.(event.data);
-            break;
-          case "memory":
-            handlers.onMemory?.(event.data);
-            break;
-          case "tts_chunk":
-            handlers.onTtsChunk?.(event.data);
-            break;
-          case "error":
-            handlers.onError?.(event.data);
-            break;
-          case "done":
-            handlers.onDone?.(event.data ?? {});
-            break;
-          default:
-            break;
-        }
-      }
+    if (!data.ok) {
+      const detail = (data as RespondErr).detail || (data as RespondErr).hint;
+      handlers.onError?.({
+        message: detail ? `${data.error}: ${detail}` : data.error,
+      });
+      return { ok: false };
     }
-  } catch (err: unknown) {
-    aborted = true;
-    handlers.onError?.({
-      message: err instanceof Error ? err.message : String(err),
-    });
+
+    handlers.onEmployeeResolved?.(data.employee);
+    handlers.onDone?.({ message_id: data.message_id, employee: data.employee });
+    return { ok: true, messageId: data.message_id, employee: data.employee };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    handlers.onError?.({ message });
+    console.warn("[chat] respondToMessage threw:", message);
+    return { ok: false };
   }
-
-  return { aborted, conversationId: lastConversationId };
 }
 
-function parseSseBlock(block: string): ChatStreamEvent | null {
-  let event = "message";
-  let dataLines: string[] = [];
-  for (const line of block.split("\n")) {
-    if (line.startsWith("event:")) {
-      event = line.slice(6).trim();
-    } else if (line.startsWith("data:")) {
-      dataLines.push(line.slice(5).trimStart());
-    }
-  }
-  if (dataLines.length === 0) return null;
-  const dataStr = dataLines.join("\n");
-  let data: unknown;
+async function readErrorBody(
+  response: Response | undefined,
+): Promise<{ error?: string; detail?: string; hint?: string } | null> {
+  if (!response) return null;
   try {
-    data = JSON.parse(dataStr);
+    const text = await response.text();
+    if (!text) return null;
+    return JSON.parse(text);
   } catch {
-    data = dataStr;
+    return null;
   }
-  return { type: event, data };
 }
