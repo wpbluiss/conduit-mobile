@@ -118,18 +118,6 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-
-  if (!anthropicKey) {
-    return json(
-      {
-        ok: false,
-        error: "missing_anthropic_key",
-        hint: "Set ANTHROPIC_API_KEY via `supabase secrets set` or the dashboard.",
-      },
-      500,
-    );
-  }
 
   // User-scoped client for the initial auth check
   const userClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -147,6 +135,29 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // Read Anthropic key from conduit_secrets (service-role-only table).
+  // Falls back to env var so this function still works if the secret is
+  // ever migrated to project secrets.
+  let anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+  if (!anthropicKey) {
+    const { data: secretRow } = await admin
+      .from("conduit_secrets")
+      .select("value")
+      .eq("name", "ANTHROPIC_API_KEY")
+      .maybeSingle();
+    anthropicKey = (secretRow?.value as string | undefined) ?? "";
+  }
+  if (!anthropicKey) {
+    return json(
+      {
+        ok: false,
+        error: "missing_anthropic_key",
+        hint: "Insert into conduit_secrets or set ANTHROPIC_API_KEY via project secrets.",
+      },
+      500,
+    );
+  }
 
   // Verify the user owns the conversation
   const { data: convo, error: convoErr } = await admin
