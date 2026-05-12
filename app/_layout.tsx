@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
+import { setAudioModeAsync } from "expo-audio";
 import {
   Fraunces_500Medium,
   Fraunces_600SemiBold,
@@ -61,6 +62,20 @@ function RootLayoutInner() {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // iOS defaults the AVAudioSession category to Ambient, which mutes playback
+  // when the physical silent switch is on. Voice replies and previews need
+  // Playback, so flip playsInSilentMode + duck other audio. One-time call.
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: "duckOthers",
+      allowsRecording: false,
+    }).catch((err) => {
+      console.warn("[Layout] setAudioModeAsync failed:", err);
+    });
+  }, []);
 
   useEffect(() => {
     if (!isLoading && fontsLoaded) SplashScreen.hideAsync();

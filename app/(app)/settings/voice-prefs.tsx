@@ -25,9 +25,12 @@ export default function VoicePrefsScreen() {
 
   const [voiceMap, setVoiceMap] = useState<Record<string, string>>({});
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<EmployeeId | null>(null);
-  const player = useAudioPlayer(previewUri);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  // Stable player. We pass an empty source on first mount and use .replace()
+  // when a new sample is generated; useAudioPlayer otherwise tears down and
+  // rebuilds the AudioPlayer on every URI change, which is racy on iOS.
+  const player = useAudioPlayer(null);
 
   useEffect(() => {
     let alive = true;
@@ -54,29 +57,43 @@ export default function VoicePrefsScreen() {
   }, []);
 
   useEffect(() => {
-    if (!previewUri) return;
-    player.play();
     const sub = player.addListener("playbackStatusUpdate", (status) => {
       if (status.didJustFinish) setPreviewing(null);
     });
     return () => sub.remove();
-  }, [previewUri, player]);
+  }, [player]);
 
   const playSample = async (emp: EmployeeId) => {
     Haptics.selectionAsync().catch(() => {});
+    setPreviewError(null);
     setPreviewing(emp);
     const sample = `${EMPLOYEE_SURFACES[emp].name} here. ${SAMPLE_LINE}`;
     const result = await synthesizeSpeech({ text: sample, employee: emp });
     if (!result.ok) {
-      console.warn("[VoicePrefs] sample failed:", result.error);
+      const msg = `TTS failed: ${result.error ?? "unknown"}`;
+      console.warn("[VoicePrefs]", msg);
+      setPreviewError(msg);
+      setPreviewing(null);
+      return;
+    }
+    let uri: string;
+    try {
+      uri = writeBase64AudioToCache(result.audioBase64);
+    } catch (e) {
+      const msg = `Audio cache write failed: ${e instanceof Error ? e.message : String(e)}`;
+      console.warn("[VoicePrefs]", msg);
+      setPreviewError(msg);
       setPreviewing(null);
       return;
     }
     try {
-      const uri = writeBase64AudioToCache(result.audioBase64);
-      setPreviewUri(uri);
+      player.replace({ uri });
+      player.seekTo(0);
+      player.play();
     } catch (e) {
-      console.warn("[VoicePrefs] cache write failed:", e);
+      const msg = `Player error: ${e instanceof Error ? e.message : String(e)}`;
+      console.warn("[VoicePrefs]", msg);
+      setPreviewError(msg);
       setPreviewing(null);
     }
   };
@@ -176,6 +193,24 @@ export default function VoicePrefsScreen() {
         >
           EMPLOYEE VOICES
         </Text>
+
+        {previewError ? (
+          <View
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              backgroundColor: "rgba(214, 120, 23, 0.10)",
+              borderWidth: 1,
+              borderColor: "rgba(214, 120, 23, 0.40)",
+              borderRadius: t.radii.md,
+              marginBottom: 10,
+            }}
+          >
+            <Text variant="caption" weight="semibold" style={{ color: "#D67817", letterSpacing: 0 }}>
+              {previewError}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={{ gap: 8 }}>
           {SURFACE_ORDER.map((id) => {

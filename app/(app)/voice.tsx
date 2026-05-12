@@ -37,8 +37,10 @@ export default function VoiceModalScreen() {
   const [synthesizing, setSynthesizing] = useState(false);
   const synthedRef = useRef<string>("");
 
-  // The hook accepts null and just doesn't play anything until set.
-  const player = useAudioPlayer(audioUri);
+  // Stable player. We swap sources via .replace() instead of letting
+  // useAudioPlayer rebuild the player when `audioUri` changes — rebuilding
+  // is racy on iOS and was a contributing cause of silent previews in R19.
+  const player = useAudioPlayer(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -95,7 +97,14 @@ export default function VoiceModalScreen() {
   useEffect(() => {
     if (!audioUri) return;
     setOrbState("speaking");
-    player.play();
+    try {
+      player.replace({ uri: audioUri });
+      player.seekTo(0);
+      player.play();
+    } catch (e) {
+      console.warn("[Voice] play failed:", e);
+      setOrbState("idle");
+    }
   }, [audioUri, player]);
 
   // Watch the player to flip orb back to idle when audio finishes.
