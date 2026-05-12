@@ -1,41 +1,39 @@
 import React from "react";
-import Svg, { Path } from "react-native-svg";
+import { Image } from "react-native";
 
-// Brand purple = oklch(50% 0.22 290) → sRGB. Computed once, hard-coded so
-// we don't take a color-space dep just for one constant.
-const BRAND_PURPLE = "#693AD4";
+const MARK = require("../../assets/images/praxis-mark.png");
 
-const VIEW_W = 32;
-const VIEW_H = 48;
-const ASPECT = VIEW_W / VIEW_H;
+// Natural dimensions of the cleaned curved-P asset (632×961 RGBA, alpha
+// background). Aspect ≈ 0.658; keep in lockstep with the file on disk.
+const SOURCE_W = 632;
+const SOURCE_H = 961;
+const ASPECT = SOURCE_W / SOURCE_H;
 
 export interface PraxisLogoProps {
-  /** Rendered height in pixels. Width is derived from the 2:3 viewBox. */
+  /**
+   * Rendered height in pixels. Width is derived from the natural asset
+   * aspect so the mark never stretches. Defaults to 64 — readable as a
+   * brand mark in any header, hero, or chip.
+   */
   size?: number;
-  /** Override the brand purple. */
+  /** Reserved for future tinting; the bundled asset is pre-shaded. */
   fill?: string;
 }
 
 /**
- * Praxis Console mark — single-letter curved "P". Rounded geometric stroke
- * tuned to read at 22px (nav header) and 96px (future hero). Placeholder
- * until Luis re-exports the sculpted 3D asset; swap is a one-file change.
+ * Praxis Console mark — cleaned curved-P export from the brand
+ * commission. Single transparent PNG; we plot it via react-native Image
+ * (expo-image not yet wired up in this repo). Same module surface as the
+ * prior SVG version so existing call sites — ChatTopBar, WelcomeState,
+ * sign-in/up chips — keep working without churn.
  */
-export function PraxisLogo({ size = 56, fill = BRAND_PURPLE }: PraxisLogoProps) {
-  const w = Math.round(size * ASPECT);
+export function PraxisLogo({ size = 64 }: PraxisLogoProps) {
   return (
-    <Svg width={w} height={size} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
-      {/* Stem from (8,44) up to (8,6), top of bowl out to (18,6), bowl arc
-          back to (18,22), close bowl floor to (8,22). Bowl spans ~⅓ of the
-          glyph height — proportions readable at 22px through 96px. */}
-      <Path
-        d="M 8 44 L 8 6 L 18 6 A 8 8 0 0 1 18 22 L 8 22"
-        stroke={fill}
-        strokeWidth={7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
+    <Image
+      source={MARK}
+      style={{ width: Math.round(size * ASPECT), height: size }}
+      resizeMode="contain"
+      accessibilityIgnoresInvertColors
+    />
   );
 }
