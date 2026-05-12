@@ -8,7 +8,6 @@ import { Text } from "../Text";
 import { Drawer } from "./Drawer";
 import { ChatTopBar } from "./ChatTopBar";
 import { WelcomeState } from "./WelcomeState";
-import { EmployeePicker } from "./EmployeePicker";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
@@ -105,7 +104,6 @@ export function ChatShell({
   } | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(
     initialDraft,
   );
@@ -294,25 +292,6 @@ export function ChatShell({
     router.push(`/(app)/chat/new?employee=${id}` as never);
   };
 
-  const onPickerSelect = (id: EmployeeId | "team") => {
-    // From the in-chat ROUTE TO sheet: if there's already a thread, start a
-    // new one. Otherwise we're on a blank slate — apply the routing in place.
-    if (conversation) {
-      const target =
-        id === "team"
-          ? "/(app)/chat/new?broadcast=true"
-          : `/(app)/chat/new?employee=${id}`;
-      router.push(target as never);
-      return;
-    }
-    setRoutedEmployee(id);
-    if (id === "team") {
-      setComposerDraft((prev) => prev ?? "");
-    } else {
-      setComposerDraft((prev) => `@${EMPLOYEES[id].name} ${prev ?? ""}`);
-    }
-  };
-
   const isStreaming = waiting || !!streaming;
   const isEmpty = !conversation && messages.length === 0;
   const isLoadedEmptyConversation =
@@ -377,7 +356,6 @@ export function ChatShell({
       <Composer
         onSubmit={handleSend}
         onVoicePress={() => router.push("/(app)/voice" as never)}
-        onPlusPress={() => setPickerOpen(true)}
         streaming={isStreaming}
         initialValue={composerDraft}
         autoFocus={autoFocus}
@@ -396,12 +374,6 @@ export function ChatShell({
         onSelectConversation={onSelectConversation}
         onNewChat={onNewChat}
         onSelectEmployee={onSelectEmployeeFromDrawer}
-      />
-
-      <EmployeePicker
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        onSelect={onPickerSelect}
       />
     </SafeAreaView>
   );
