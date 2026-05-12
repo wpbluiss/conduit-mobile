@@ -26,6 +26,7 @@ import {
   PencilSimple,
   PushPinSimple,
   CaretRight,
+  X,
 } from "phosphor-react-native";
 import { formatDistanceToNow, isToday, isYesterday, subDays } from "date-fns";
 import * as Haptics from "expo-haptics";
@@ -37,7 +38,10 @@ import { useAuthStore } from "../../../store/authStore";
 import type { Conversation } from "../../../lib/conduit/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.84, 360);
+// Full screen width — partial drawers leave a ghost rail of the underlying
+// chat UI bleeding through the right edge under the scrim, which reads as
+// broken on iPhone widths (60–70 px). Full-width slides feel native.
+const DRAWER_WIDTH = SCREEN_WIDTH;
 
 const PINNED: EmployeeId[] = ["atlas", "engineering", "sales", "marketing"];
 
@@ -213,21 +217,39 @@ export function Drawer({
           style={{
             flexDirection: "row",
             alignItems: "center",
-            justifyContent: "space-between",
-            paddingHorizontal: 18,
+            paddingHorizontal: 12,
             paddingBottom: 12,
           }}
         >
-          <Text variant="caption" tone="indigo" weight="semibold">
+          <Pressable
+            onPress={onClose}
+            hitSlop={10}
+            style={({ pressed }) => ({
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: pressed ? t.colors.bgElevated : "transparent",
+            })}
+          >
+            <X size={18} color={t.colors.inkPrimary} weight="bold" />
+          </Pressable>
+          <Text
+            variant="caption"
+            tone="indigo"
+            weight="semibold"
+            style={{ flex: 1, textAlign: "center" }}
+          >
             CONVERSATIONS
           </Text>
           <Pressable
             onPress={handleNew}
             hitSlop={10}
             style={({ pressed }) => ({
-              width: 32,
-              height: 32,
-              borderRadius: 16,
+              width: 36,
+              height: 36,
+              borderRadius: 18,
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: pressed ? t.colors.bgElevated : "transparent",
