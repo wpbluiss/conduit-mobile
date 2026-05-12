@@ -5,3 +5,4 @@ export { Input } from "./Input";
 export { IconBadge } from "./IconBadge";
 export { EmployeeAvatar } from "./EmployeeAvatar";
 export { PlaceholderScreen } from "./PlaceholderScreen";
+export { PraxisLogo } from "./PraxisLogo";

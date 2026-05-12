@@ -44,7 +44,20 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // broken on iPhone widths (60–70 px). Full-width slides feel native.
 const DRAWER_WIDTH = SCREEN_WIDTH;
 
-const PINNED: EmployeeId[] = ["atlas", "engineering", "sales", "marketing"];
+// All nine employees are pinned. R18 only carried the four "named" ones
+// (atlas/engineering/sales/marketing); R19 promotes finance/ops/compliance/
+// hr/legal alongside them with distinct jewel-tone avatars.
+const PINNED: EmployeeId[] = [
+  "atlas",
+  "engineering",
+  "sales",
+  "marketing",
+  "finance",
+  "ops",
+  "compliance",
+  "hr",
+  "legal",
+];
 
 export interface DrawerProps {
   open: boolean;

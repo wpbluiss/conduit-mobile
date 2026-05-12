@@ -3,6 +3,7 @@ import { View, Pressable, ScrollView } from "react-native";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
+import { PraxisLogo } from "../PraxisLogo";
 
 export interface WelcomeStateProps {
   greeting: string;
@@ -35,27 +36,8 @@ export function WelcomeState({
           marginBottom: 32,
         }}
       >
-        <View
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: t.colors.violet700,
-            borderWidth: 1,
-            borderColor: t.colors.violet800,
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 18,
-          }}
-        >
-          <Text
-            variant="displayMd"
-            family="display"
-            weight="semibold"
-            style={{ color: "#FFFFFF" }}
-          >
-            P
-          </Text>
+        <View style={{ marginBottom: 18 }}>
+          <PraxisLogo size={56} />
         </View>
 
         <Text

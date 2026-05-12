@@ -8,6 +8,7 @@ import { Text } from "../Text";
 import { Drawer } from "./Drawer";
 import { ChatTopBar } from "./ChatTopBar";
 import { WelcomeState } from "./WelcomeState";
+import { EmployeeWelcomeState } from "../surfaces/EmployeeWelcomeState";
 import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
@@ -253,13 +254,32 @@ export function ChatShell({
   const isLoadedEmptyConversation =
     !!conversation && !loadingMessages && messages.length === 0;
 
-  const headerTitle = conversation?.title
-    ? conversation.title
-    : isEmpty
-      ? "New conversation"
-      : "Conversation";
+  // The "active employee" for header theming. Prefer the routed override
+  // (deep-linked from a pinned employee tap) over the conversation's
+  // dominant employee. "team" stays as team (no per-employee theming).
+  const activeEmployee: EmployeeId | "team" | null = (() => {
+    if (routedEmployee) return routedEmployee;
+    if (conversation?.dominant_employee) {
+      const id = conversation.dominant_employee as EmployeeId;
+      return EMPLOYEES[id] ? id : null;
+    }
+    return null;
+  })();
+
+  const headerTitle = (() => {
+    if (conversation?.title) return conversation.title;
+    if (isEmpty && routedEmployee && routedEmployee !== "team") {
+      return EMPLOYEES[routedEmployee].name;
+    }
+    if (isEmpty && routedEmployee === "team") return "The team";
+    if (isEmpty) return "New conversation";
+    return "Conversation";
+  })();
 
   const headerSubtitle = (() => {
+    if (isEmpty && routedEmployee && routedEmployee !== "team") {
+      return EMPLOYEES[routedEmployee].title;
+    }
     if (routedEmployee && routedEmployee !== "team") {
       return `Routing to ${EMPLOYEES[routedEmployee].name}`;
     }
@@ -271,6 +291,11 @@ export function ChatShell({
     return undefined;
   })();
 
+  // The empty-state surface: when an employee is routed, render their
+  // bespoke workspace. Otherwise fall back to the generic greeting.
+  const showEmployeeSurface =
+    isEmpty && routedEmployee !== null && routedEmployee !== "team";
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: t.colors.bgCanvas }}
@@ -281,11 +306,17 @@ export function ChatShell({
         subtitle={headerSubtitle}
         onMenuPress={() => setDrawerOpen(true)}
         onNewPress={onNewChat}
+        employee={activeEmployee}
       />
 
       <View style={{ flex: 1 }}>
         <ErrorBoundary resetKey={conversation?.id ?? "new"}>
-          {isEmpty ? (
+          {showEmployeeSurface ? (
+            <EmployeeWelcomeState
+              employee={routedEmployee as EmployeeId}
+              onSelectChip={(text) => setComposerDraft(text)}
+            />
+          ) : isEmpty ? (
             <WelcomeState
               greeting={greeting()}
               displayName={displayName}

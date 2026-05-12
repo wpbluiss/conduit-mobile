@@ -1,14 +1,9 @@
 import React from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
-import {
-  Compass,
-  Code2,
-  TrendingUp,
-  Sparkles,
-  Users,
-} from "lucide-react-native";
+import { Users } from "lucide-react-native";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { type EmployeeId } from "../../lib/conduit/employees";
+import { EMPLOYEE_SURFACES } from "../../lib/conduit/surfaces";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -27,34 +22,9 @@ const SIZE_MAP: Record<AvatarSize, { d: number; iconSize: number }> = {
   xl: { d: 80, iconSize: 40 },
 };
 
-type LucideIcon = typeof Compass;
-
-interface RoleAvatar {
-  Icon: LucideIcon;
-  bg: string;
-}
-
-// Slate that holds AA contrast against white in both light and dark themes.
-const NEUTRAL_BG = "#4A5160";
-
-// Role-based avatar identity, aligned with Lunaro's R18 icon system: same
-// Lucide set, same R14 palette depth. Atlas/Engineering/Sales/Marketing
-// carry distinctive brand colors; the other five share a neutral slate so
-// the named four stay legible at-a-glance in long lists. Every bg passes
-// AA against the white icon stroke.
-const ROLE_MAP: Record<EmployeeId | "team", RoleAvatar> = {
-  atlas: { Icon: Compass, bg: "#6D28D9" }, // violet-700
-  engineering: { Icon: Code2, bg: "#5B63E8" }, // indigo-500
-  sales: { Icon: TrendingUp, bg: "#0E8A55" }, // success
-  marketing: { Icon: Sparkles, bg: "#D67817" }, // ember
-  finance: { Icon: Sparkles, bg: NEUTRAL_BG },
-  compliance: { Icon: Sparkles, bg: NEUTRAL_BG },
-  hr: { Icon: Sparkles, bg: NEUTRAL_BG },
-  ops: { Icon: Sparkles, bg: NEUTRAL_BG },
-  legal: { Icon: Sparkles, bg: NEUTRAL_BG },
-  team: { Icon: Users, bg: "#5B63E8" },
-};
-
+// Every employee carries its own jewel-tone signature now (R14 → R19) so
+// the team grid and pinned drawer read at-a-glance. No more shared slate
+// fallback for finance/ops/compliance/hr/legal — each is distinct.
 export function EmployeeAvatar({
   employee,
   size = "md",
@@ -64,8 +34,31 @@ export function EmployeeAvatar({
   const t = usePraxisTheme();
   const { d, iconSize } = SIZE_MAP[size];
 
-  const key: EmployeeId | "team" = employee ?? "atlas";
-  const { Icon, bg } = ROLE_MAP[key] ?? ROLE_MAP.atlas;
+  if (employee === "team") {
+    return (
+      <View
+        style={[
+          {
+            width: d,
+            height: d,
+            borderRadius: d / 2,
+            backgroundColor: "#5B63E8",
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: ringed ? 1.5 : 0,
+            borderColor: ringed ? t.colors.bgSurface : "transparent",
+          },
+          style,
+        ]}
+      >
+        <Users size={iconSize} color="#FFFFFF" strokeWidth={2.25} />
+      </View>
+    );
+  }
+
+  const key: EmployeeId = employee ?? "atlas";
+  const surface = EMPLOYEE_SURFACES[key] ?? EMPLOYEE_SURFACES.atlas;
+  const Icon = surface.Icon;
 
   return (
     <View
@@ -74,7 +67,7 @@ export function EmployeeAvatar({
           width: d,
           height: d,
           borderRadius: d / 2,
-          backgroundColor: bg,
+          backgroundColor: surface.accentColor,
           alignItems: "center",
           justifyContent: "center",
           borderWidth: ringed ? 1.5 : 0,
