@@ -28,7 +28,7 @@ import {
   CaretRight,
   X,
 } from "phosphor-react-native";
-import { formatDistanceToNow, isToday, isYesterday, subDays } from "date-fns";
+import { format, isToday, isYesterday, subDays } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
@@ -81,6 +81,14 @@ function groupConversations(items: Conversation[]): ConversationGroup[] {
   if (last7.length) groups.push({ label: "Last 7 days", items: last7 });
   if (earlier.length) groups.push({ label: "Earlier", items: earlier });
   return groups;
+}
+
+function formatRowTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (isToday(d)) return format(d, "h:mm a");
+  if (isYesterday(d)) return "Yesterday";
+  if (d > subDays(new Date(), 7)) return format(d, "EEE");
+  return format(d, "MMM d");
 }
 
 export function Drawer({
@@ -301,12 +309,12 @@ export function Drawer({
             </View>
           ) : (
             groups.map((g) => (
-              <View key={g.label} style={{ marginBottom: 14 }}>
+              <View key={g.label} style={{ marginBottom: 10 }}>
                 <Text
                   variant="caption"
                   tone="tertiary"
                   weight="semibold"
-                  style={{ paddingHorizontal: 18, paddingVertical: 6 }}
+                  style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 6 }}
                 >
                   {g.label.toUpperCase()}
                 </Text>
@@ -317,8 +325,11 @@ export function Drawer({
                       key={c.id}
                       onPress={() => handleSelect(c.id)}
                       style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 10,
                         paddingHorizontal: 14,
-                        paddingVertical: 10,
+                        paddingVertical: 9,
                         marginHorizontal: 6,
                         borderRadius: t.radii.md,
                         backgroundColor: isActive
@@ -329,10 +340,11 @@ export function Drawer({
                       })}
                     >
                       <Text
-                        variant="bodySm"
+                        variant="body"
                         weight={isActive ? "semibold" : "medium"}
                         numberOfLines={1}
                         style={{
+                          flex: 1,
                           color: isActive
                             ? t.colors.indigo500
                             : t.colors.inkPrimary,
@@ -343,11 +355,10 @@ export function Drawer({
                       <Text
                         variant="caption"
                         tone="tertiary"
-                        style={{ marginTop: 2, letterSpacing: 0 }}
+                        numberOfLines={1}
+                        style={{ letterSpacing: 0 }}
                       >
-                        {formatDistanceToNow(new Date(c.updated_at), {
-                          addSuffix: true,
-                        })}
+                        {formatRowTimestamp(c.updated_at)}
                       </Text>
                     </Pressable>
                   );
