@@ -191,6 +191,45 @@ export async function appendUserMessage(
   return normalizeMessage(data, conversationId);
 }
 
+export interface ConversationStage {
+  stage: "thinking" | "routing";
+  employee: string;
+  label: string;
+}
+
+/**
+ * Subscribe to transient typing-indicator events broadcast from the
+ * chat-respond edge function on `conv-{id}:stage`. Returns an unsubscribe fn.
+ * Unlike the messages channel, this topic is stable (no nonce) because the
+ * server has to address it without knowing the client's mount epoch.
+ */
+export function subscribeToConversationStage(
+  conversationId: string,
+  onStage: (s: ConversationStage) => void,
+): () => void {
+  const channel = supabase
+    .channel(`conv-${conversationId}:stage`)
+    .on("broadcast", { event: "stage" }, (msg) => {
+      const payload = msg.payload as Partial<ConversationStage> | undefined;
+      if (
+        payload &&
+        (payload.stage === "thinking" || payload.stage === "routing") &&
+        typeof payload.label === "string" &&
+        typeof payload.employee === "string"
+      ) {
+        onStage({
+          stage: payload.stage,
+          employee: payload.employee,
+          label: payload.label,
+        });
+      }
+    })
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 /** Subscribe to new messages on a conversation. Returns an unsubscribe fn. */
 export function subscribeToMessages(
   conversationId: string,

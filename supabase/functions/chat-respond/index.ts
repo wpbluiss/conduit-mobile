@@ -81,6 +81,65 @@ interface ChatRequest {
   employee_override?: string | null;
 }
 
+interface StagePayload {
+  stage: "thinking" | "routing";
+  employee: EmployeeId | "team";
+  label: string;
+}
+
+/**
+ * Fire a transient status event on the conv-{id}:stage broadcast topic.
+ * The mobile client subscribes there and uses it to drive the typing
+ * indicator copy ("Atlas is thinking…" → "Routing to Engineering…").
+ *
+ * Best-effort: failures are logged but never abort the responder — the
+ * indicator falling back to plain dots is acceptable; a missing assistant
+ * reply is not.
+ */
+async function broadcastStage(
+  supabaseUrl: string,
+  anonKey: string,
+  serviceKey: string,
+  conversationId: string,
+  payload: StagePayload,
+): Promise<void> {
+  try {
+    const resp = await fetch(`${supabaseUrl}/realtime/v1/api/broadcast`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        apikey: anonKey,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            topic: `conv-${conversationId}:stage`,
+            event: "stage",
+            payload,
+            private: false,
+          },
+        ],
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => "");
+      console.warn(
+        "[chat-respond] broadcast non-2xx",
+        resp.status,
+        text.slice(0, 200),
+      );
+    }
+  } catch (e) {
+    console.warn("[chat-respond] broadcast threw", e);
+  }
+}
+
+function employeeDisplayName(id: EmployeeId | "team"): string {
+  if (id === "team") return "the team";
+  return EMPLOYEE_PROMPTS[id].name;
+}
+
 interface MessageRow {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
@@ -199,13 +258,41 @@ Deno.serve(async (req: Request) => {
   // Decide which employee responds.
   const override = normalizeEmployee(body.employee_override);
   let employee: EmployeeId | "team";
+  let hadDefaultAtlasFrame = false;
   if (override) {
     employee = override;
   } else if (convo.dominant_employee) {
     const resolved = normalizeEmployee(convo.dominant_employee);
     employee = resolved ?? "atlas";
   } else {
+    // For un-routed convos, show "Atlas is thinking…" first (he's the
+    // Chief of Staff who routes), then "Routing to <Employee>…" if the
+    // content classifier sends it elsewhere. Mirrors Claude desktop's
+    // intermediate-status pattern.
+    hadDefaultAtlasFrame = true;
+    await broadcastStage(supabaseUrl, supabaseAnonKey, serviceRoleKey, body.conversation_id, {
+      stage: "thinking",
+      employee: "atlas",
+      label: "Atlas is thinking…",
+    });
     employee = routeByContent(lastUser.content);
+  }
+
+  // For pre-routed convos (explicit override or dominant_employee), the
+  // first frame already names the responder; no separate Atlas frame.
+  if (!hadDefaultAtlasFrame) {
+    await broadcastStage(supabaseUrl, supabaseAnonKey, serviceRoleKey, body.conversation_id, {
+      stage: "thinking",
+      employee,
+      label: `${employeeDisplayName(employee)} is thinking…`,
+    });
+  } else if (employee !== "atlas") {
+    // Routing handoff — second frame.
+    await broadcastStage(supabaseUrl, supabaseAnonKey, serviceRoleKey, body.conversation_id, {
+      stage: "routing",
+      employee,
+      label: `Routing to ${employeeDisplayName(employee)}…`,
+    });
   }
 
   // Build the Anthropic call

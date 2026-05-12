@@ -12,6 +12,8 @@ export interface MessageListProps {
   messages: Message[];
   streaming?: { content: string; employee?: EmployeeId | "team" | null } | null;
   isWaiting?: boolean;
+  /** Current typing-stage broadcast from chat-respond, if any. */
+  stage?: { label: string; employee?: string | null } | null;
 }
 
 function MessageRowFallback() {
@@ -32,7 +34,7 @@ function MessageRowFallback() {
   );
 }
 
-export function MessageList({ messages, streaming, isWaiting }: MessageListProps) {
+export function MessageList({ messages, streaming, isWaiting, stage }: MessageListProps) {
   const listRef = useRef<FlatList<Message>>(null);
 
   useEffect(() => {
@@ -75,7 +77,12 @@ export function MessageList({ messages, streaming, isWaiting }: MessageListProps
                 employee={streaming.employee ?? "atlas"}
               />
             ) : null}
-            {isWaiting && !streaming?.content ? <StreamingIndicator /> : null}
+            {isWaiting && !streaming?.content ? (
+              <StreamingIndicator
+                label={stage?.label ?? null}
+                employee={stage?.employee ?? null}
+              />
+            ) : null}
           </View>
         ) : null
       }

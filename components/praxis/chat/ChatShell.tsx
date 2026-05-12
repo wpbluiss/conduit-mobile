@@ -19,7 +19,9 @@ import {
   createConversation,
   getConversation,
   listConversations,
+  subscribeToConversationStage,
   subscribeToMessages,
+  type ConversationStage,
 } from "../../../lib/conduit/conversations";
 import { respondToMessage } from "../../../lib/conduit/chat";
 import { getOrCreateAccount } from "../../../lib/conduit/account";
@@ -80,6 +82,7 @@ export function ChatShell({
     EmployeeId | "team" | null
   >(preferredEmployee ?? null);
   const [conversationsList, setConversationsList] = useState<Conversation[]>([]);
+  const [stage, setStage] = useState<ConversationStage | null>(null);
 
   const conversationIdRef = useRef<string | null>(conversationId);
 
@@ -132,7 +135,9 @@ export function ChatShell({
     };
   }, [conversationId]);
 
-  // Realtime: pick up assistant messages persisted by the worker.
+  // Realtime: pick up assistant messages persisted by the worker. When an
+  // assistant message lands, clear any in-flight stage label — the bubble
+  // replaces the typing indicator.
   useEffect(() => {
     const cid = conversation?.id;
     if (!cid) return;
@@ -140,7 +145,16 @@ export function ChatShell({
       setMessages((prev) =>
         prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
       );
+      if (msg.role === "assistant") setStage(null);
     });
+    return unsub;
+  }, [conversation?.id]);
+
+  // Realtime: typing-stage broadcasts from chat-respond.
+  useEffect(() => {
+    const cid = conversation?.id;
+    if (!cid) return;
+    const unsub = subscribeToConversationStage(cid, (s) => setStage(s));
     return unsub;
   }, [conversation?.id]);
 
@@ -197,6 +211,7 @@ export function ChatShell({
       }
 
       setWaiting(true);
+      setStage(null);
 
       const result = await respondToMessage(
         {
@@ -223,6 +238,7 @@ export function ChatShell({
       }
 
       setWaiting(false);
+      setStage(null);
       // After first turn we don't keep forcing the employee.
       setRoutedEmployee(null);
     },
@@ -335,6 +351,7 @@ export function ChatShell({
               messages={messages}
               streaming={null}
               isWaiting={waiting}
+              stage={stage}
             />
           )}
         </ErrorBoundary>

@@ -9,15 +9,60 @@ import Animated, {
   withDelay,
 } from "react-native-reanimated";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
+import { Text } from "../Text";
+import { EMPLOYEE_SURFACES } from "../../../lib/conduit/surfaces";
+import type { EmployeeId } from "../../../lib/conduit/employees";
 
-export function StreamingIndicator() {
+export interface StreamingIndicatorProps {
+  /** When set, shows status text + accent dot ahead of the animated dots. */
+  label?: string | null;
+  /** Drives the leading accent dot color; falls back to ink-tertiary. */
+  employee?: EmployeeId | "team" | "atlas" | string | null;
+}
+
+export function StreamingIndicator({ label, employee }: StreamingIndicatorProps) {
   const t = usePraxisTheme();
 
+  const accent = (() => {
+    if (!employee || employee === "team") return t.colors.inkTertiary;
+    const cfg = EMPLOYEE_SURFACES[employee as EmployeeId];
+    return cfg?.accentColor ?? t.colors.inkTertiary;
+  })();
+
   return (
-    <View style={{ flexDirection: "row", gap: 4, padding: 10, alignItems: "center" }}>
-      <Dot delay={0} color={t.colors.inkTertiary} />
-      <Dot delay={150} color={t.colors.inkTertiary} />
-      <Dot delay={300} color={t.colors.inkTertiary} />
+    <View
+      style={{
+        flexDirection: "row",
+        gap: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        alignItems: "center",
+      }}
+    >
+      {label ? (
+        <View
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: accent,
+          }}
+        />
+      ) : null}
+      {label ? (
+        <Text
+          variant="bodySm"
+          tone="secondary"
+          style={{ letterSpacing: 0.1 }}
+        >
+          {label}
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: "row", gap: 4 }}>
+        <Dot delay={0} color={t.colors.inkTertiary} />
+        <Dot delay={150} color={t.colors.inkTertiary} />
+        <Dot delay={300} color={t.colors.inkTertiary} />
+      </View>
     </View>
   );
 }
