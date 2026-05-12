@@ -35,6 +35,7 @@ import { Text } from "../Text";
 import { EmployeeAvatar } from "../EmployeeAvatar";
 import { EMPLOYEE_LIST, type EmployeeId } from "../../../lib/conduit/employees";
 import { useAuthStore } from "../../../store/authStore";
+import { deriveInitial } from "../../../lib/conduit/displayName";
 import type { Conversation } from "../../../lib/conduit/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -166,13 +167,7 @@ export function Drawer({
   };
 
   const userEmail = user?.email ?? "";
-  const userInitial = (
-    (user?.user_metadata as Record<string, unknown> | undefined)?.full_name as
-      | string
-      | undefined
-  )?.charAt(0)
-    ?? user?.email?.charAt(0)
-    ?? "•";
+  const userInitial = deriveInitial(user);
 
   return (
     <View

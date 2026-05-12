@@ -31,6 +31,26 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: !!session,
         isLoading: false,
       });
+
+      // The session's `user` is hydrated from the cached JWT, which carries
+      // user_metadata as it existed *when the token was issued*. If anyone
+      // has updated auth.users (e.g. display_name) since then, those fields
+      // are stale until the next token refresh. Fetch the live user from
+      // /auth/v1/user so greetings/avatars reflect current metadata on
+      // first launch — not an hour later.
+      if (session) {
+        const { data: live, error: liveErr } = await supabase.auth.getUser();
+        if (liveErr) {
+          console.warn("[Auth] getUser refresh failed:", liveErr.message);
+        } else if (live?.user) {
+          console.log(
+            "[Auth] user_metadata at launch:",
+            JSON.stringify(live.user.user_metadata ?? {}),
+          );
+          set({ user: live.user });
+        }
+      }
+
       supabase.auth.onAuthStateChange((_event, nextSession) => {
         set({
           user: nextSession?.user ?? null,

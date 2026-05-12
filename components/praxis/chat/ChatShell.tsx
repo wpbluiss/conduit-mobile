@@ -28,6 +28,7 @@ import {
   type EmployeeId,
 } from "../../../lib/conduit/employees";
 import { useAuthStore } from "../../../store/authStore";
+import { deriveDisplayName } from "../../../lib/conduit/displayName";
 
 const SUGGESTIONS = [
   "Brief me on what's pending.",
@@ -41,35 +42,6 @@ function greeting(): string {
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
-}
-
-function deriveDisplayName(
-  user: { email?: string; user_metadata?: Record<string, unknown> } | null | undefined,
-): string {
-  const meta = user?.user_metadata;
-  const fromMeta = (key: string): string | null => {
-    const v = meta?.[key];
-    return typeof v === "string" && v.trim() ? v.trim() : null;
-  };
-
-  const displayName = fromMeta("display_name");
-  if (displayName) return displayName.split(/\s+/)[0];
-
-  const fullName =
-    fromMeta("full_name") ?? fromMeta("name") ?? fromMeta("first_name");
-  if (fullName) return fullName.split(/\s+/)[0];
-
-  const email = typeof user?.email === "string" ? user.email : "";
-  const username = email.split("@")[0] ?? "";
-  if (!username) return "there";
-
-  // Strip digits, then split on common separators (. _ - +). Take first chunk
-  // and capitalize. Handles john.smith101 → John, luis_garcia → Luis,
-  // luisinvestments101 → Luisinvestments (no separator, best we can do).
-  const stripped = username.replace(/\d+/g, "");
-  const firstChunk = stripped.split(/[._\-+]+/).filter(Boolean)[0] ?? "";
-  if (!firstChunk) return "there";
-  return firstChunk.charAt(0).toUpperCase() + firstChunk.slice(1).toLowerCase();
 }
 
 export interface ChatShellProps {
