@@ -196,12 +196,18 @@ export function ChatShell({
       if (!cid) {
         const titleSeed = text.length > 60 ? text.slice(0, 60) + "…" : text;
         const created = await createConversation(titleSeed);
-        if (!created) return;
+        if (!created) {
+          console.warn("[Chat] createConversation returned null — aborting send");
+          return;
+        }
         cid = created.id;
         conversationIdRef.current = cid;
         setConversation(created);
-        // Replace URL so back goes to active, not /new
-        router.replace(`/(app)/chat/${cid}` as never);
+        // Do NOT router.replace here — switching routes unmounts /chat/new
+        // mid-send, orphans appendUserMessage + the streaming response, and
+        // the freshly-mounted /chat/[id] races getConversation against the
+        // not-yet-persisted message → empty thread. Stay in-place; the
+        // conversation is saved server-side and will surface in the drawer.
       }
 
       const optimistic: Message = {
@@ -220,6 +226,8 @@ export function ChatShell({
         setMessages((prev) =>
           prev.map((m) => (m.id === optimistic.id ? persisted : m)),
         );
+      } else {
+        console.warn("[Chat] appendUserMessage failed — message kept optimistic");
       }
 
       streamingTextRef.current = "";
