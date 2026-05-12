@@ -116,7 +116,7 @@ export default function SignInScreen() {
 
           <View style={{ alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 4, marginTop: 32 }}>
             <Text variant="body" tone="tertiary">
-              New to Conduit?
+              New to Praxis?
             </Text>
             <Link href="/(auth)/sign-up" asChild>
               <Button label="Create an account" variant="link" size="sm" hapticOnPress={false} />
