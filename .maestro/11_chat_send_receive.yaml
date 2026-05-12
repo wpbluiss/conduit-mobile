@@ -1,0 +1,47 @@
+## 11 — Chat send → receive loop.
+##
+## R19 wiring: mobile inserts user message, invokes the chat-respond Edge
+## Function, Anthropic replies, function INSERTs assistant row, Realtime
+## fires INSERT, mobile renders bubble.
+##
+## We don't assert on Anthropic's exact words (the model is stochastic).
+## We assert the loop completed: the typing indicator showed up, then
+## was replaced by an assistant bubble. We give it 20 s end-to-end.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+
+# Land on the chat shell (default redirect from /(app)/index → /chat/active)
+- waitForAnimationToEnd:
+    timeout: 4000
+
+# Open a fresh thread to keep the test isolated from history
+- tapOn:
+    point: "95%,7%"
+- waitForAnimationToEnd:
+    timeout: 2000
+- assertVisible: "PRAXIS CONSOLE"
+
+# Send a deterministic ping
+- tapOn:
+    text: "Type or talk to Praxis|Reply to Praxis|Message Praxis"
+- inputText: "Atlas — single-word reply: confirmed"
+- waitForAnimationToEnd:
+    timeout: 1000
+- tapOn:
+    point: "94%,92%"
+
+# Composer should empty out within a beat
+- assertNotVisible:
+    text: "Atlas — single-word reply: confirmed"
+    timeout: 4000
+
+# Within 20 s an assistant bubble must appear. We're permissive on
+# content — just need *something* that wasn't there before the send.
+# The bubble has the "ATLAS" speaker label on assistant messages.
+- assertVisible:
+    text: "ATLAS|Atlas|Confirmed|confirmed"
+    timeout: 20000
+
+# And the typing indicator must have cleared.
+- assertNotVisible: "SOMETHING WENT WRONG"

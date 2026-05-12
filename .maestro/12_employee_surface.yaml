@@ -1,0 +1,25 @@
+## 12 — Per-employee surface routing.
+##
+## Tap Engineering from the drawer, confirm the chat opens with the
+## Engineering header (kicker + name) and quick-start chips.
+appId: io.conduitai.app
+---
+- runFlow: _shared.yaml
+
+# Open the drawer
+- tapOn:
+    point: "5%,7%"   # left edge of the top bar — burger
+- waitForAnimationToEnd:
+    timeout: 1500
+- assertVisible: "CONVERSATIONS"
+- assertVisible: "PINNED"
+
+# Tap Engineering pinned row
+- tapOn: "Engineering"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Surface assertions
+- assertVisible: "ENGINEERING · BUILD & SHIP"
+- assertVisible: "Show me recent builds"
+- assertVisible: "What's deploying now"
