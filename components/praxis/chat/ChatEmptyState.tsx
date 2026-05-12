@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { ChatCircle } from "phosphor-react-native";
+import Svg, { Path, Circle } from "react-native-svg";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 
@@ -31,24 +31,12 @@ export function ChatEmptyState({ title, onStart }: ChatEmptyStateProps) {
         paddingHorizontal: 32,
       }}
     >
-      <View
-        style={{
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: t.colors.indigoSoft,
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 16,
-        }}
-      >
-        <ChatCircle size={28} color={t.colors.indigo500} weight="regular" />
-      </View>
+      <ThreadGlyph color={t.colors.violet700} />
       <Text
         variant="caption"
         tone="indigo"
         weight="semibold"
-        style={{ marginBottom: 8 }}
+        style={{ marginTop: 18, marginBottom: 8 }}
       >
         EMPTY THREAD
       </Text>
@@ -91,5 +79,39 @@ export function ChatEmptyState({ title, onStart }: ChatEmptyStateProps) {
         ))}
       </View>
     </View>
+  );
+}
+
+/**
+ * Abstract message-thread illustration: three lines flowing into a single
+ * point — reads as the start of a conversation without committing to a
+ * generic chat-bubble icon. Brand-purple stroke.
+ */
+function ThreadGlyph({ color }: { color: string }) {
+  return (
+    <Svg width={72} height={48} viewBox="0 0 72 48" fill="none">
+      <Path
+        d="M6 12 C 26 12, 38 18, 52 24"
+        stroke={color}
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d="M6 24 L 52 24"
+        stroke={color}
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Path
+        d="M6 36 C 26 36, 38 30, 52 24"
+        stroke={color}
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        fill="none"
+      />
+      <Circle cx={58} cy={24} r={4} fill={color} />
+    </Svg>
   );
 }
