@@ -1,11 +1,14 @@
 import { supabase } from "../supabase";
 import { getOrCreateAccount } from "./account";
 import {
+  normalizeContent,
   normalizeConversation,
   normalizeMessage,
   normalizeMessages,
 } from "./normalize";
 import type { Conversation, Message } from "./types";
+
+const PREVIEW_MAX_LEN = 140;
 
 export async function listConversations(): Promise<Conversation[]> {
   const account = await getOrCreateAccount();
@@ -22,9 +25,50 @@ export async function listConversations(): Promise<Conversation[]> {
     console.warn("[Conversations] list failed:", error.message);
     return [];
   }
-  return (data ?? [])
+  const conversations = (data ?? [])
     .map((row) => normalizeConversation(row))
     .filter((c): c is Conversation => c !== null);
+
+  if (conversations.length === 0) return conversations;
+
+  // Attach a short preview of each conversation's most recent message so
+  // the drawer can render a two-line iMessage-style row. Single batched
+  // query fetches all relevant messages; we group + take the latest per
+  // conversation client-side. Cheap up to a few hundred messages; if this
+  // grows expensive, swap to a Postgres RPC with DISTINCT ON.
+  const ids = conversations.map((c) => c.id);
+  const { data: msgRows, error: msgErr } = await supabase
+    .from("conduit_messages")
+    .select("conversation_id, content, role, created_at")
+    .in("conversation_id", ids)
+    .order("created_at", { ascending: false });
+
+  if (msgErr) {
+    console.warn("[Conversations] preview fetch failed:", msgErr.message);
+    return conversations;
+  }
+
+  const latestByConv = new Map<string, { content: unknown }>();
+  for (const m of msgRows ?? []) {
+    const cid = (m as { conversation_id?: string }).conversation_id;
+    if (typeof cid !== "string") continue;
+    if (latestByConv.has(cid)) continue;
+    latestByConv.set(cid, m as { content: unknown });
+  }
+
+  return conversations.map((c) => {
+    const last = latestByConv.get(c.id);
+    if (!last) return c;
+    const text = normalizeContent(last.content)
+      .replace(/\s+/g, " ")
+      .trim();
+    return {
+      ...c,
+      last_message_preview: text
+        ? text.slice(0, PREVIEW_MAX_LEN)
+        : null,
+    };
+  });
 }
 
 /** Return the most recent conversation, or null if none exist. */

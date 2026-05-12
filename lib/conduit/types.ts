@@ -34,6 +34,9 @@ export interface Conversation {
   voice_session_id?: string | null;
   engineering_session_id?: string | null;
   marketing_session_id?: string | null;
+  /** Last message content snippet, attached by listConversations for the
+   *  drawer row preview. Not persisted on the row itself. */
+  last_message_preview?: string | null;
 }
 
 export type MessageRole = "user" | "assistant" | "system" | "tool";

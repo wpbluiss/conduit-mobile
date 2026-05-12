@@ -315,6 +315,9 @@ export function Drawer({
                 </Text>
                 {g.items.map((c) => {
                   const isActive = c.id === activeConversationId;
+                  // Unread tracking isn't modeled in the DB yet; the affordance
+                  // is here so we can flip it on once last_read_at lands.
+                  const isUnread = false;
                   return (
                     <Pressable
                       key={c.id}
@@ -323,8 +326,8 @@ export function Drawer({
                         flexDirection: "row",
                         alignItems: "center",
                         gap: 10,
-                        paddingHorizontal: 14,
-                        paddingVertical: 9,
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
                         marginHorizontal: 6,
                         borderRadius: t.radii.md,
                         backgroundColor: isActive
@@ -334,27 +337,73 @@ export function Drawer({
                             : "transparent",
                       })}
                     >
-                      <Text
-                        variant="body"
-                        weight={isActive ? "semibold" : "medium"}
-                        numberOfLines={1}
+                      <View
                         style={{
-                          flex: 1,
-                          color: isActive
-                            ? t.colors.indigo500
-                            : t.colors.inkPrimary,
+                          width: 8,
+                          alignItems: "center",
                         }}
                       >
-                        {c.title ?? "Untitled"}
-                      </Text>
-                      <Text
-                        variant="caption"
-                        tone="tertiary"
-                        numberOfLines={1}
-                        style={{ letterSpacing: 0 }}
-                      >
-                        {formatRowTimestamp(c.updated_at)}
-                      </Text>
+                        {isUnread ? (
+                          <View
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: 4,
+                              backgroundColor: t.colors.violet700,
+                            }}
+                          />
+                        ) : null}
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <Text
+                            variant="body"
+                            weight="semibold"
+                            numberOfLines={1}
+                            style={{
+                              flex: 1,
+                              color: isActive
+                                ? t.colors.indigo500
+                                : t.colors.inkPrimary,
+                            }}
+                          >
+                            {c.title ?? "Untitled"}
+                          </Text>
+                          <Text
+                            tone="tertiary"
+                            numberOfLines={1}
+                            style={{
+                              fontFamily: t.fonts.body,
+                              fontSize: 12,
+                              lineHeight: 16,
+                              letterSpacing: 0,
+                            }}
+                          >
+                            {formatRowTimestamp(c.updated_at)}
+                          </Text>
+                        </View>
+                        {c.last_message_preview ? (
+                          <Text
+                            tone="tertiary"
+                            numberOfLines={1}
+                            style={{
+                              fontFamily: t.fonts.body,
+                              fontSize: 13,
+                              lineHeight: 18,
+                              marginTop: 2,
+                              letterSpacing: 0,
+                            }}
+                          >
+                            {c.last_message_preview}
+                          </Text>
+                        ) : null}
+                      </View>
                     </Pressable>
                   );
                 })}
