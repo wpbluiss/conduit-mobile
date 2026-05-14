@@ -146,8 +146,8 @@ export function Composer({
             placeholderTextColor={t.colors.inkTertiary}
             multiline
             autoFocus={autoFocus}
-            autoCorrect
-            spellCheck
+            autoCorrect={false}
+            spellCheck={false}
             autoCapitalize="sentences"
             keyboardAppearance={t.isDark ? "dark" : "light"}
             returnKeyType="default"
