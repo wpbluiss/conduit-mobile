@@ -359,7 +359,12 @@ export function ChatShell({
 
       <Composer
         onSubmit={handleSend}
-        onVoicePress={() => router.push("/(app)/voice" as never)}
+        onVoicePress={() => {
+          const path = conversation?.id
+            ? `/(app)/voice?conversationId=${conversation.id}`
+            : "/(app)/voice";
+          router.push(path as never);
+        }}
         streaming={isStreaming}
         initialValue={composerDraft}
         autoFocus={autoFocus}

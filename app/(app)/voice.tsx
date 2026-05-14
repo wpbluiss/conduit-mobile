@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAudioPlayer } from "expo-audio";
 import {
@@ -17,10 +17,7 @@ import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text } from "../../components/praxis";
 import { VoiceOrb, type OrbState } from "../../components/praxis/voice/VoiceOrb";
 import { Captions } from "../../components/praxis/voice/Captions";
-import {
-  getConversation,
-  getMostRecentConversation,
-} from "../../lib/conduit/conversations";
+import { getConversation } from "../../lib/conduit/conversations";
 import { synthesizeSpeech } from "../../lib/conduit/voice";
 import { writeBase64AudioToCache } from "../../lib/conduit/audioPlayback";
 import { getEmployee, type EmployeeId } from "../../lib/conduit/employees";
@@ -28,6 +25,11 @@ import { getEmployee, type EmployeeId } from "../../lib/conduit/employees";
 export default function VoiceModalScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ conversationId?: string }>();
+  const conversationId =
+    typeof params.conversationId === "string" && params.conversationId.length > 0
+      ? params.conversationId
+      : null;
 
   const [orbState, setOrbState] = useState<OrbState>("idle");
   const [employee, setEmployee] = useState<EmployeeId | "team" | null>(null);
@@ -42,13 +44,19 @@ export default function VoiceModalScreen() {
   // is racy on iOS and was a contributing cause of silent previews in R19.
   const player = useAudioPlayer(null);
 
+  // Only auto-load a transcript when an explicit conversationId is passed
+  // in. Without one (e.g. entering voice mode from the team grid or any
+  // generic surface), the screen must stay in its empty state — Principle
+  // Zero forbids surfacing a stale assistant message as if it were a
+  // canonical reply for the user's current session.
   useFocusEffect(
     useCallback(() => {
+      setAssistantText("");
+      setEmployee(null);
+      if (!conversationId) return;
       let alive = true;
       (async () => {
-        const recent = await getMostRecentConversation();
-        if (!alive || !recent) return;
-        const detail = await getConversation(recent.id);
+        const detail = await getConversation(conversationId);
         if (!alive || !detail) return;
         const lastAssistant = [...detail.messages]
           .reverse()
@@ -61,7 +69,7 @@ export default function VoiceModalScreen() {
       return () => {
         alive = false;
       };
-    }, []),
+    }, [conversationId]),
   );
 
   // Generate TTS for any new assistant text, unless muted.
