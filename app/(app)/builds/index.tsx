@@ -73,7 +73,7 @@ export default function BuildsIndexScreen() {
         <Text variant="caption" tone="indigo" weight="semibold">
           BUILDS
         </Text>
-        <Text variant="displayMd" family="display" weight="semibold">
+        <Text variant="displayLg" family="display" weight="semibold">
           Engineering sessions
         </Text>
       </View>

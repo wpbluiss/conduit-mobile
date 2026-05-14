@@ -64,10 +64,10 @@ export default function SignInScreen() {
                 PRAXIS CONSOLE
               </Text>
             </View>
-            <Text variant="displayXl" family="display" weight="semibold">
+            <Text variant="displayLg" family="display" weight="semibold">
               Praxis Console
             </Text>
-            <Text variant="bodyLg" tone="secondary" style={{ marginTop: 8 }}>
+            <Text variant="body" tone="secondary" style={{ marginTop: 8 }}>
               Your institutional workforce, on hand.
             </Text>
           </View>
