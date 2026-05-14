@@ -6,7 +6,13 @@ import type { User, Session } from "@supabase/supabase-js";
 interface AuthState {
   user: User | null;
   session: Session | null;
-  isLoading: boolean;
+  // True only while the app is hydrating its initial auth state from
+  // SecureStore on cold launch. Never flipped by signIn/signUp/signOut —
+  // the root layout uses this to gate the splash screen and the very first
+  // navigation decision; auth screens own their own per-submit "submitting"
+  // state, so this flag must NOT be toggled during in-flight auth ops or
+  // the entire <Slot /> unmounts mid-submit and the screen flashes blank.
+  isBootstrapping: boolean;
   isAuthenticated: boolean;
   initialize: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -17,7 +23,7 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   session: null,
-  isLoading: true,
+  isBootstrapping: true,
   isAuthenticated: false,
 
   initialize: async () => {
@@ -29,7 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: session?.user ?? null,
         session: session ?? null,
         isAuthenticated: !!session,
-        isLoading: false,
+        isBootstrapping: false,
       });
 
       // The session's `user` is hydrated from the cached JWT, which carries
@@ -61,57 +67,37 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
     } catch (error) {
       console.error("[Auth] init error:", error);
-      set({ isLoading: false });
+      set({ isBootstrapping: false });
     }
   },
 
   signIn: async (email, password) => {
-    set({ isLoading: true });
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      set({
-        user: data.user,
-        session: data.session,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    set({
+      user: data.user,
+      session: data.session,
+      isAuthenticated: true,
+    });
   },
 
   signUp: async (email, password, metadata) => {
-    set({ isLoading: true });
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: metadata },
-      });
-      if (error) throw error;
-      set({
-        user: data.user,
-        session: data.session,
-        isAuthenticated: !!data.session,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: metadata },
+    });
+    if (error) throw error;
+    set({
+      user: data.user,
+      session: data.session,
+      isAuthenticated: !!data.session,
+    });
   },
 
   signOut: async () => {
-    set({ isLoading: true });
-    try {
-      await supabase.auth.signOut();
-      clearAccountCache();
-      set({ user: null, session: null, isAuthenticated: false, isLoading: false });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
+    await supabase.auth.signOut();
+    clearAccountCache();
+    set({ user: null, session: null, isAuthenticated: false });
   },
 }));

@@ -38,7 +38,7 @@ export default function RootLayout() {
 }
 
 function RootLayoutInner() {
-  const { initialize, isLoading, isAuthenticated, user } = useAuthStore();
+  const { initialize, isBootstrapping, isAuthenticated, user } = useAuthStore();
   const theme = usePraxisTheme();
   const segments = useSegments();
   const router = useRouter();
@@ -78,8 +78,8 @@ function RootLayoutInner() {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && fontsLoaded) SplashScreen.hideAsync();
-  }, [isLoading, fontsLoaded]);
+    if (!isBootstrapping && fontsLoaded) SplashScreen.hideAsync();
+  }, [isBootstrapping, fontsLoaded]);
 
   useEffect(() => {
     if (isAuthenticated && user?.id && !pushRegisteredRef.current) {
@@ -91,7 +91,7 @@ function RootLayoutInner() {
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
-    if (isLoading || !fontsLoaded) return;
+    if (isBootstrapping || !fontsLoaded) return;
     if (navigationLockRef.current) return;
 
     const inAuth = segments[0] === "(auth)";
@@ -110,9 +110,9 @@ function RootLayoutInner() {
     } else if (isAuthenticated && !inApp) {
       navigate("/(app)");
     }
-  }, [isAuthenticated, isLoading, fontsLoaded, segments, router]);
+  }, [isAuthenticated, isBootstrapping, fontsLoaded, segments, router]);
 
-  if (isLoading || !fontsLoaded) return null;
+  if (isBootstrapping || !fontsLoaded) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bgCanvas }}>
