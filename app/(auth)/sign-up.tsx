@@ -1,11 +1,27 @@
 import React, { useState } from "react";
-import { View, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import {
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Pressable,
+  Linking,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useRouter, Stack } from "expo-router";
-import { Envelope, Lock, User } from "phosphor-react-native";
+import {
+  Envelope,
+  Lock,
+  User,
+  CheckSquare,
+  Square,
+  ArrowSquareOut,
+} from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
+
+const PRIVACY_POLICY_URL = "https://conduitai.io/privacy";
 
 export default function SignUpScreen() {
   const t = usePraxisTheme();
@@ -15,6 +31,7 @@ export default function SignUpScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consentChecked, setConsentChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +44,17 @@ export default function SignUpScreen() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (!consentChecked) {
+      setError("Please agree to AI data processing to continue.");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
       await signUp(email.trim().toLowerCase(), password, {
         full_name: name.trim() || null,
+        ai_data_consent: true,
+        ai_data_consent_date: new Date().toISOString(),
       });
       router.replace("/(app)");
     } catch (e: unknown) {
@@ -113,12 +136,88 @@ export default function SignUpScreen() {
               error={error}
             />
 
+            <View
+              style={{
+                marginTop: 8,
+                padding: 16,
+                borderRadius: t.radii.lg,
+                borderWidth: 1,
+                borderColor: t.colors.borderSubtle,
+                backgroundColor: t.colors.bgElevated,
+              }}
+            >
+              <Text
+                variant="caption"
+                tone="indigo"
+                weight="semibold"
+                style={{ marginBottom: 8 }}
+              >
+                AI DATA NOTICE
+              </Text>
+              <Text
+                variant="bodySm"
+                tone="secondary"
+                style={{ lineHeight: 19 }}
+              >
+                Praxis sends your chats and voice prompts to Anthropic, OpenAI,
+                and ElevenLabs to generate AI employee responses. Your workspace
+                data is stored in Supabase and is not used for AI model training.
+              </Text>
+              <Pressable
+                onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+                style={{
+                  marginTop: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+                hitSlop={8}
+              >
+                <Text variant="bodySm" tone="indigo" weight="medium">
+                  Read the Privacy Policy
+                </Text>
+                <ArrowSquareOut size={14} color={t.colors.indigo500} />
+              </Pressable>
+            </View>
+
+            <Pressable
+              onPress={() => setConsentChecked((c) => !c)}
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 12,
+                paddingVertical: 4,
+              }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: consentChecked }}
+              accessibilityLabel="I agree to AI data processing as described above"
+              hitSlop={8}
+            >
+              {consentChecked ? (
+                <CheckSquare
+                  size={22}
+                  color={t.colors.indigo500}
+                  weight="fill"
+                />
+              ) : (
+                <Square size={22} color={t.colors.inkTertiary} />
+              )}
+              <Text
+                variant="bodySm"
+                tone="secondary"
+                style={{ flex: 1, lineHeight: 19, marginTop: 1 }}
+              >
+                I agree to AI data processing as described above.
+              </Text>
+            </Pressable>
+
             <Button
               label={submitting ? "Creating…" : "Create account"}
               variant="primary"
               size="lg"
               fullWidth
               loading={submitting}
+              disabled={!consentChecked}
               onPress={onSubmit}
             />
           </View>
