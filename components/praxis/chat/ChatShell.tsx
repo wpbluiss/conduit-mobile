@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Pressable } from "react-native";
+import { Keyboard, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
@@ -320,7 +320,10 @@ export function ChatShell({
       <ChatTopBar
         title={headerTitle}
         subtitle={headerSubtitle}
-        onMenuPress={() => setDrawerOpen(true)}
+        onMenuPress={() => {
+          Keyboard.dismiss();
+          setDrawerOpen(true);
+        }}
         onNewPress={onNewChat}
         employee={activeEmployee}
       />
