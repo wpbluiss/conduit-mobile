@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { getBackendToken } from "./backend-auth";
 
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "https://conduitai.io";
@@ -69,14 +70,17 @@ export async function authedFetch(
     data: { session },
   } = await supabase.auth.getSession();
 
+  // Prefer the conduit-backend JWT for /api/v1/* routes; fall back to Supabase token.
+  const backendToken = path.startsWith("/api/v1/") ? await getBackendToken() : null;
+
   const headers: Record<string, string> = {
     ...((init.headers as Record<string, string>) ?? {}),
     "Content-Type": "application/json",
   };
 
   if (cookie) headers.Cookie = cookie;
-  if (session?.access_token)
-    headers.Authorization = `Bearer ${session.access_token}`;
+  const bearerToken = backendToken ?? session?.access_token;
+  if (bearerToken) headers.Authorization = `Bearer ${bearerToken}`;
 
   const url = path.startsWith("http") ? path : `${API_URL}${path}`;
 

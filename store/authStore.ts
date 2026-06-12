@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import { clearAccountCache } from "../lib/conduit/account";
+import { backendSignin, storeBackendToken, clearBackendToken } from "../lib/conduit/backend-auth";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthState {
@@ -79,6 +80,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       session: data.session,
       isAuthenticated: true,
     });
+    // Best-effort: also authenticate with the conduit-backend to obtain its JWT.
+    // Failure here never blocks the user — Supabase auth is the source of truth.
+    try {
+      const token = await backendSignin(email, password);
+      await storeBackendToken(token);
+    } catch (e) {
+      console.warn("[Auth] backend signin failed (non-fatal):", e instanceof Error ? e.message : e);
+    }
   },
 
   signUp: async (email, password, metadata) => {
@@ -98,6 +107,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     await supabase.auth.signOut();
     clearAccountCache();
+    await clearBackendToken();
     set({ user: null, session: null, isAuthenticated: false });
   },
 }));
