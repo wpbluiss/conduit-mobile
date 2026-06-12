@@ -4,19 +4,33 @@ import { useRouter } from "expo-router";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { ChatShell } from "../../../components/praxis/chat/ChatShell";
 import { getMostRecentConversation } from "../../../lib/conduit/conversations";
+import { getOrCreateAccount } from "../../../lib/conduit/account";
+import { needsOnboarding } from "../../../lib/conduit/onboarding";
+import { OnboardingModal } from "../../../components/praxis/OnboardingModal";
 
 export default function ChatActiveScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
   const [resolved, setResolved] = useState<{ id: string | null } | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const recent = await getMostRecentConversation();
+      const [recent, onboarding, account] = await Promise.all([
+        getMostRecentConversation(),
+        needsOnboarding(),
+        getOrCreateAccount(),
+      ]);
       if (!alive) return;
+
+      if (onboarding) {
+        setWorkspaceName(account?.name ?? "");
+        setShowOnboarding(true);
+      }
+
       if (recent) {
-        // Within last 24h, jump straight into the thread.
         const updated = new Date(recent.updated_at).getTime();
         const now = Date.now();
         if (now - updated < 24 * 60 * 60 * 1000) {
@@ -46,5 +60,14 @@ export default function ChatActiveScreen() {
     );
   }
 
-  return <ChatShell conversationId={resolved.id} />;
+  return (
+    <>
+      <ChatShell conversationId={resolved.id} />
+      <OnboardingModal
+        visible={showOnboarding}
+        workspaceName={workspaceName}
+        onDone={() => setShowOnboarding(false)}
+      />
+    </>
+  );
 }
