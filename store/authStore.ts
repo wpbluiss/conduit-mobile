@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "../lib/supabase";
 import { clearAccountCache } from "../lib/conduit/account";
+import { clearBackendToken } from "../lib/conduit/backendAuth";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthState {
@@ -98,6 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     await supabase.auth.signOut();
     clearAccountCache();
+    clearBackendToken().catch(() => {});
     set({ user: null, session: null, isAuthenticated: false });
   },
 }));

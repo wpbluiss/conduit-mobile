@@ -6,6 +6,7 @@ import { Envelope, Lock } from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
+import { signinBackend } from "../../lib/conduit/backendAuth";
 
 export default function SignInScreen() {
   const t = usePraxisTheme();
@@ -26,6 +27,9 @@ export default function SignInScreen() {
     setSubmitting(true);
     try {
       await signIn(email.trim().toLowerCase(), password);
+      // Fire-and-forget: also obtain a conduit-backend JWT and persist it.
+      // Non-fatal — Supabase remains primary auth; failure here doesn't block navigation.
+      signinBackend(email.trim().toLowerCase(), password).catch(() => {});
       router.replace("/(app)");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not sign in.";
