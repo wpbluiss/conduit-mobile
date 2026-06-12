@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, KeyboardAvoidingView, Platform, ScrollView, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
@@ -6,11 +6,16 @@ import { Envelope, Lock } from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
+import { trackPageView } from "../../lib/analytics";
 
 export default function SignInScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
   const { signIn } = useAuthStore();
+
+  useEffect(() => {
+    trackPageView({ referrer: "signin_screen" });
+  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
