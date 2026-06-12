@@ -4,6 +4,13 @@
 
 import type { EmployeeId } from "./employees";
 
+/** Response from GET /api/v1/me on the conduit-backend. */
+export interface CurrentUser {
+  id: string;
+  email: string;
+  plan: string;
+}
+
 export interface ConduitAccount {
   id: string;
   owner_user_id: string;
