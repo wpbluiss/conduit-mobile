@@ -16,6 +16,7 @@ import {
   CheckSquare,
   Square,
   ArrowSquareOut,
+  Check,
 } from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
@@ -25,9 +26,34 @@ import {
   trackSignupStarted,
   trackSignupCompleted,
 } from "../../lib/analytics";
+import {
+  conduitSignup,
+  storeConduitToken,
+  checkPasswordStrength,
+} from "../../lib/conduit/auth";
+import { supabase } from "../../lib/supabase";
 
 const PRIVACY_POLICY_URL = "https://conduitai.io/privacy";
 const TERMS_URL = "https://conduitai.io/terms";
+
+function StrengthRule({ met, label }: { met: boolean; label: string }) {
+  const t = usePraxisTheme();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+      <Check
+        size={12}
+        weight={met ? "bold" : "regular"}
+        color={met ? t.colors.success : t.colors.inkTertiary}
+      />
+      <Text
+        variant="bodySm"
+        style={{ color: met ? t.colors.success : t.colors.inkTertiary }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export default function SignUpScreen() {
   const t = usePraxisTheme();
@@ -46,15 +72,21 @@ export default function SignUpScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const strength = checkPasswordStrength(password);
   const allConsented = aiConsentChecked && tosChecked;
+  const showStrength = password.length > 0;
 
   const onSubmit = async () => {
-    if (!email.trim() || !password) {
-      setError("Email and password are required.");
+    if (!name.trim()) {
+      setError("Your name is required.");
       return;
     }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (!email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+    if (!strength.isValid) {
+      setError("Password must be 8+ chars with at least one letter and one digit.");
       return;
     }
     if (!aiConsentChecked) {
@@ -68,14 +100,35 @@ export default function SignUpScreen() {
     setError(null);
     setSubmitting(true);
     trackSignupStarted();
+
     try {
-      await signUp(email.trim().toLowerCase(), password, {
-        full_name: name.trim() || null,
-        ai_data_consent: true,
-        ai_data_consent_date: new Date().toISOString(),
-        tos_accepted: true,
-        tos_accepted_date: new Date().toISOString(),
+      // Step 1: register with conduit-backend for validated user creation
+      const res = await conduitSignup({
+        email: email.trim().toLowerCase(),
+        password,
+        name: name.trim(),
       });
+      await storeConduitToken(res.token, res.expiresIn);
+
+      // Step 2: establish Supabase session for the rest of the app.
+      // conduit-backend may have already created the Supabase user via admin
+      // API — try sign-in first; fall back to sign-up if not.
+      const signinResult = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (signinResult.error) {
+        // User wasn't pre-created in Supabase — create them now
+        await signUp(email.trim().toLowerCase(), password, {
+          full_name: name.trim(),
+          ai_data_consent: true,
+          ai_data_consent_date: new Date().toISOString(),
+          tos_accepted: true,
+          tos_accepted_date: new Date().toISOString(),
+        });
+      }
+
       trackSignupCompleted();
       router.replace("/(app)");
     } catch (e: unknown) {
@@ -145,17 +198,33 @@ export default function SignUpScreen() {
               leftAdornment={<Envelope size={18} color={t.colors.inkTertiary} />}
               placeholder="you@company.com"
             />
-            <Input
-              label="Password"
-              secureTextEntry
-              autoCapitalize="none"
-              autoComplete="new-password"
-              value={password}
-              onChangeText={setPassword}
-              leftAdornment={<Lock size={18} color={t.colors.inkTertiary} />}
-              placeholder="At least 8 characters"
-              error={error}
-            />
+            <View>
+              <Input
+                label="Password"
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="new-password"
+                value={password}
+                onChangeText={setPassword}
+                leftAdornment={<Lock size={18} color={t.colors.inkTertiary} />}
+                placeholder="At least 8 characters"
+                error={error}
+              />
+              {showStrength && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    gap: 16,
+                    marginTop: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <StrengthRule met={strength.hasLength} label="8+ chars" />
+                  <StrengthRule met={strength.hasLetter} label="One letter" />
+                  <StrengthRule met={strength.hasDigit} label="One digit" />
+                </View>
+              )}
+            </View>
 
             <View
               style={{
@@ -278,7 +347,7 @@ export default function SignUpScreen() {
               size="lg"
               fullWidth
               loading={submitting}
-              disabled={!allConsented}
+              disabled={!allConsented || !strength.isValid}
               onPress={onSubmit}
             />
           </View>
