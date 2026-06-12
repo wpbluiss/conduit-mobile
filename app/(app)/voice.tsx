@@ -11,6 +11,7 @@ import {
   SpeakerSlash,
   Play,
   Stop,
+  Radio,
 } from "phosphor-react-native";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
@@ -131,6 +132,15 @@ export default function VoiceModalScreen() {
       player.pause();
     } catch {}
     router.back();
+  };
+
+  const handleLiveRoom = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    router.push(
+      conversationId
+        ? (`/(app)/voice-room?conversationId=${conversationId}` as never)
+        : ("/(app)/voice-room" as never),
+    );
   };
 
   const togglePlay = () => {
@@ -325,6 +335,24 @@ export default function VoiceModalScreen() {
               )}
             </Pressable>
           ) : null}
+
+          <Pressable
+            onPress={handleLiveRoom}
+            style={({ pressed }) => ({
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: pressed
+                ? "rgba(109, 40, 217, 0.35)"
+                : "rgba(109, 40, 217, 0.18)",
+              alignItems: "center",
+              justifyContent: "center",
+              borderWidth: 1,
+              borderColor: "rgba(109, 40, 217, 0.45)",
+            })}
+          >
+            <Radio size={22} color="#A8AFFB" weight="fill" />
+          </Pressable>
 
           <Pressable
             onPress={handleEnd}
