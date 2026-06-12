@@ -88,6 +88,54 @@ function emptyActivity(employee: EmployeeId): EmployeeActivity {
   };
 }
 
+export interface EmployeeRecentMessage {
+  conversationId: string;
+  content: string;
+  createdAt: string;
+  role: "user" | "assistant";
+}
+
+/** Fetch the last `limit` messages involving a specific employee. */
+export async function getEmployeeRecentMessages(
+  employee: EmployeeId,
+  limit = 10,
+): Promise<EmployeeRecentMessage[]> {
+  const account = await getOrCreateAccount();
+  if (!account) return [];
+
+  const { data: convoRows } = await supabase
+    .from("conduit_conversations")
+    .select("id")
+    .eq("account_id", account.id)
+    .limit(500);
+
+  const ids = (convoRows ?? []).map((c) => c.id as string).filter(Boolean);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("conduit_messages")
+    .select("conversation_id, content, role, created_at")
+    .in("conversation_id", ids)
+    .eq("employee", employee)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn("[Team] employee messages fetch failed:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    conversationId: (row as { conversation_id: string }).conversation_id,
+    content: normalizeContent((row as { content: unknown }).content)
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200),
+    createdAt: (row as { created_at: string }).created_at,
+    role: (row as { role: string }).role as "user" | "assistant",
+  }));
+}
+
 /** Compact "2h ago" / "now" / "yesterday" / "May 8" formatter. */
 export function formatRelative(iso: string | null, now: Date = new Date()): string {
   if (!iso) return "—";
