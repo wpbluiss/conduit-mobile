@@ -14,6 +14,7 @@ import { MessageList } from "./MessageList";
 import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
 import { ChatEmptyState } from "./ChatEmptyState";
 import { ErrorBoundary } from "../ErrorBoundary";
+import { MemoryCard } from "./MemoryCard";
 import {
   appendUserMessage,
   createConversation,
@@ -25,7 +26,8 @@ import {
 } from "../../../lib/conduit/conversations";
 import { respondToMessage } from "../../../lib/conduit/chat";
 import { getOrCreateAccount } from "../../../lib/conduit/account";
-import type { Conversation, Message } from "../../../lib/conduit/types";
+import { listMemory, subscribeToMemory } from "../../../lib/conduit/memory";
+import type { Conversation, Message, MemoryRecord } from "../../../lib/conduit/types";
 import {
   EMPLOYEES,
   type EmployeeId,
@@ -86,6 +88,9 @@ export function ChatShell({
   /** Epoch ms after which the user can send again (null = not rate limited). */
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
+  const [memoryItems, setMemoryItems] = useState<MemoryRecord[]>([]);
+  const [memoryAccountId, setMemoryAccountId] = useState<string | null>(null);
+  const [accountTierId, setAccountTierId] = useState<string | null>(null);
 
   const conversationIdRef = useRef<string | null>(conversationId);
 
@@ -96,6 +101,43 @@ export function ChatShell({
   useEffect(() => {
     getOrCreateAccount();
   }, []);
+
+  // Fetch memory once on mount and capture the account id for the live subscription.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const account = await getOrCreateAccount();
+      if (!alive || !account) return;
+      setMemoryAccountId(account.id);
+      setAccountTierId(account.tier_id ?? null);
+      const items = await listMemory();
+      if (alive) setMemoryItems(items);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // Re-fetch memory whenever a new assistant message arrives so the card
+  // reflects any [REMEMBER:] tags the server wrote.
+  const lastAssistantCount = messages.filter((m) => m.role === "assistant").length;
+  useEffect(() => {
+    if (lastAssistantCount === 0) return;
+    let alive = true;
+    listMemory().then((items) => { if (alive) setMemoryItems(items); });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAssistantCount]);
+
+  // Subscribe to live INSERT events on conduit_memory for real-time updates.
+  useEffect(() => {
+    if (!memoryAccountId) return;
+    const unsub = subscribeToMemory(memoryAccountId, (record) => {
+      setMemoryItems((prev) => {
+        if (prev.some((m) => m.id === record.id)) return prev;
+        return [record, ...prev];
+      });
+    });
+    return unsub;
+  }, [memoryAccountId]);
 
   // Load the conversation if we have an id, refresh sidebar list always.
   useEffect(() => {
@@ -381,6 +423,13 @@ export function ChatShell({
               streaming={null}
               isWaiting={waiting}
               stage={stage}
+              headerComponent={
+                <MemoryCard
+                  memories={memoryItems}
+                  totalCount={memoryItems.length}
+                  tierId={accountTierId}
+                />
+              }
             />
           )}
         </ErrorBoundary>
