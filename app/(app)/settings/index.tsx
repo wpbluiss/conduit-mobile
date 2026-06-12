@@ -9,6 +9,7 @@ import {
   Microphone,
   Brain,
   Sun,
+  Star,
   Info,
 } from "phosphor-react-native";
 import Constants from "expo-constants";
@@ -28,6 +29,12 @@ const ROWS: Row[] = [
     label: "Account",
     hint: "Profile, email, sign out",
     icon: (c) => <UserCircle size={18} color={c} weight="fill" />,
+  },
+  {
+    href: "/(app)/settings/upgrade",
+    label: "Upgrade to Pro",
+    hint: "Unlock the full workforce",
+    icon: (c) => <Star size={18} color={c} weight="fill" />,
   },
   {
     href: "/(app)/settings/voice-prefs",
