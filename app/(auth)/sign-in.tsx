@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { View, KeyboardAvoidingView, Platform, ScrollView, Alert } from "react-native";
+import { View, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, useLocalSearchParams } from "expo-router";
 import { Envelope, Lock } from "phosphor-react-native";
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
@@ -11,25 +11,27 @@ export default function SignInScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
   const { signIn } = useAuthStore();
+  // Forwarded from /auth/callback on PKCE exchange failure
+  const { callbackError } = useLocalSearchParams<{ callbackError?: string }>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     if (!email.trim() || !password) {
-      setError("Enter your email and password.");
+      setSubmitError("Enter your email and password.");
       return;
     }
-    setError(null);
+    setSubmitError(null);
     setSubmitting(true);
     try {
       await signIn(email.trim().toLowerCase(), password);
       router.replace("/(app)");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not sign in.";
-      setError(msg);
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -72,6 +74,23 @@ export default function SignInScreen() {
             </Text>
           </View>
 
+          {callbackError ? (
+            <View
+              style={{
+                marginBottom: 16,
+                padding: 12,
+                borderRadius: t.radii.md,
+                backgroundColor: "rgba(239, 68, 68, 0.08)",
+                borderWidth: 1,
+                borderColor: t.colors.danger,
+              }}
+            >
+              <Text variant="bodySm" tone="danger">
+                {callbackError}
+              </Text>
+            </View>
+          ) : null}
+
           <View style={{ gap: 16 }}>
             <Input
               label="Email"
@@ -93,7 +112,7 @@ export default function SignInScreen() {
               onChangeText={setPassword}
               leftAdornment={<Lock size={18} color={t.colors.inkTertiary} />}
               placeholder="••••••••"
-              error={error}
+              error={submitError}
             />
 
             <View style={{ alignItems: "flex-end" }}>
