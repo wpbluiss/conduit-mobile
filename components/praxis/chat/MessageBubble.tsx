@@ -5,6 +5,7 @@ import { Text } from "../Text";
 import { EmployeeAvatar } from "../EmployeeAvatar";
 import { CodeBlock } from "./CodeBlock";
 import { getEmployee, type EmployeeId } from "../../../lib/conduit/employees";
+import { EMPLOYEE_SURFACES } from "../../../lib/conduit/surfaces";
 
 export interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "tool";
@@ -48,6 +49,10 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
       : "assistant";
   const isUser = safeRole === "user";
   const employeeCfg = !isUser ? getEmployee(employee ?? null) : null;
+  const surface =
+    !isUser && employee && employee !== "team"
+      ? EMPLOYEE_SURFACES[employee as EmployeeId] ?? null
+      : null;
 
   const segments = useMemo(() => segmentMarkdown(content), [content]);
 
@@ -82,7 +87,11 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
           borderRadius: t.radii.lg,
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: isUser ? t.colors.indigo500 : t.colors.bgSurface,
+          backgroundColor: isUser
+            ? t.colors.indigo500
+            : surface
+              ? surface.accentSoft
+              : t.colors.bgSurface,
           borderWidth: isUser ? 0 : 1,
           borderColor: isUser ? "transparent" : t.colors.borderSubtle,
         }}
