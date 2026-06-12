@@ -12,6 +12,7 @@ import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 import { EMPLOYEE_SURFACES } from "../../../lib/conduit/surfaces";
 import type { EmployeeId } from "../../../lib/conduit/employees";
+import { useReduceMotion } from "../../../hooks/useReduceMotion";
 
 export interface StreamingIndicatorProps {
   /** When set, shows status text + accent dot ahead of the animated dots. */
@@ -22,6 +23,7 @@ export interface StreamingIndicatorProps {
 
 export function StreamingIndicator({ label, employee }: StreamingIndicatorProps) {
   const t = usePraxisTheme();
+  const reduceMotion = useReduceMotion();
 
   const accent = (() => {
     if (!employee || employee === "team") return t.colors.inkTertiary;
@@ -59,18 +61,22 @@ export function StreamingIndicator({ label, employee }: StreamingIndicatorProps)
         </Text>
       ) : null}
       <View style={{ flexDirection: "row", gap: 4 }}>
-        <Dot delay={0} color={t.colors.inkTertiary} />
-        <Dot delay={150} color={t.colors.inkTertiary} />
-        <Dot delay={300} color={t.colors.inkTertiary} />
+        <Dot delay={0} color={t.colors.inkTertiary} reduceMotion={reduceMotion} />
+        <Dot delay={150} color={t.colors.inkTertiary} reduceMotion={reduceMotion} />
+        <Dot delay={300} color={t.colors.inkTertiary} reduceMotion={reduceMotion} />
       </View>
     </View>
   );
 }
 
-function Dot({ delay, color }: { delay: number; color: string }) {
+function Dot({ delay, color, reduceMotion }: { delay: number; color: string; reduceMotion: boolean }) {
   const o = useSharedValue(0.25);
 
   useEffect(() => {
+    if (reduceMotion) {
+      o.value = withTiming(0.6, { duration: 0 });
+      return;
+    }
     o.value = withDelay(
       delay,
       withRepeat(
@@ -82,7 +88,7 @@ function Dot({ delay, color }: { delay: number; color: string }) {
         false,
       ),
     );
-  }, [o, delay]);
+  }, [o, delay, reduceMotion]);
 
   const style = useAnimatedStyle(() => ({ opacity: o.value }));
 

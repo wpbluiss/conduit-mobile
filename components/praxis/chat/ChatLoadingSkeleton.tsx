@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
+import { useReduceMotion } from "../../../hooks/useReduceMotion";
 
 /**
  * Three rows of subtly pulsing placeholders for chat messages while we
@@ -15,9 +16,14 @@ import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
  * jump when real content lands.
  */
 export function ChatLoadingSkeleton() {
+  const reduceMotion = useReduceMotion();
   const pulse = useSharedValue(0.3);
 
   useEffect(() => {
+    if (reduceMotion) {
+      pulse.value = withTiming(0.5, { duration: 0 });
+      return;
+    }
     pulse.value = withRepeat(
       withSequence(
         withTiming(0.7, { duration: 700 }),
@@ -26,7 +32,7 @@ export function ChatLoadingSkeleton() {
       -1,
       false,
     );
-  }, [pulse]);
+  }, [pulse, reduceMotion]);
 
   return (
     <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }}>
