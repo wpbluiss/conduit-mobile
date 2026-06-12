@@ -41,6 +41,16 @@ interface RespondErr {
   hint?: string;
 }
 
+export interface RespondResult {
+  ok: boolean;
+  messageId?: string;
+  employee?: EmployeeId | "team";
+  /** True when the server returned 429 Too Many Requests. */
+  rateLimited?: boolean;
+  /** Seconds to wait before retrying, parsed from Retry-After header. */
+  retryAfterSeconds?: number;
+}
+
 /**
  * Invoke the chat-respond Edge Function. Returns when the assistant message
  * has been inserted (or an error has occurred). The actual rendering happens
@@ -49,7 +59,7 @@ interface RespondErr {
 export async function respondToMessage(
   params: RespondParams,
   handlers: RespondHandlers = {},
-): Promise<{ ok: boolean; messageId?: string; employee?: EmployeeId | "team" }> {
+): Promise<RespondResult> {
   try {
     const { data, error } = await supabase.functions.invoke<RespondOk | RespondErr>(
       "chat-respond",
@@ -66,6 +76,16 @@ export async function respondToMessage(
       // Functions sometimes return non-2xx with a JSON body; surface that
       // detail instead of the generic SDK message.
       const ctx = (error as { context?: { response?: Response } }).context;
+
+      // Detect 429 rate limit before reading the body.
+      if (ctx?.response?.status === 429) {
+        const retryAfterRaw = ctx.response.headers.get("Retry-After");
+        const retryAfterSeconds = retryAfterRaw ? parseInt(retryAfterRaw, 10) : undefined;
+        handlers.onError?.({ message: "rate_limited" });
+        console.warn("[chat] rate limited, Retry-After:", retryAfterRaw);
+        return { ok: false, rateLimited: true, retryAfterSeconds: Number.isFinite(retryAfterSeconds) ? retryAfterSeconds : undefined };
+      }
+
       const responseBody = await readErrorBody(ctx?.response);
       handlers.onError?.({
         message: responseBody?.error

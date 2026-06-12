@@ -83,6 +83,9 @@ export function ChatShell({
   >(preferredEmployee ?? null);
   const [conversationsList, setConversationsList] = useState<Conversation[]>([]);
   const [stage, setStage] = useState<ConversationStage | null>(null);
+  /** Epoch ms after which the user can send again (null = not rate limited). */
+  const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
+  const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
 
   const conversationIdRef = useRef<string | null>(conversationId);
 
@@ -158,6 +161,23 @@ export function ChatShell({
     return unsub;
   }, [conversation?.id]);
 
+  // Countdown ticker for rate-limit cooldown.
+  useEffect(() => {
+    if (!rateLimitUntil) return;
+    const tick = () => {
+      const remaining = Math.ceil((rateLimitUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setRateLimitUntil(null);
+        setRateLimitSecondsLeft(0);
+      } else {
+        setRateLimitSecondsLeft(remaining);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [rateLimitUntil]);
+
   // Apply preferredEmployee/initialDraft when params change (deep links).
   useEffect(() => {
     if (preferredEmployee !== undefined) {
@@ -225,6 +245,11 @@ export function ChatShell({
         },
       );
 
+      if (result.rateLimited) {
+        const waitSeconds = result.retryAfterSeconds ?? 60;
+        setRateLimitUntil(Date.now() + waitSeconds * 1000);
+      }
+
       // Realtime subscription will push the new assistant row into the list,
       // but if for any reason the subscription is slow / lost, fall back to
       // fetching the row we know exists.
@@ -265,6 +290,7 @@ export function ChatShell({
     router.push(`/(app)/chat/new?employee=${id}` as never);
   };
 
+  const isRateLimited = !!rateLimitUntil;
   const isStreaming = waiting;
   const isEmpty = !conversation && messages.length === 0;
   const isLoadedEmptyConversation =
@@ -360,6 +386,25 @@ export function ChatShell({
         </ErrorBoundary>
       </View>
 
+      {isRateLimited ? (
+        <View
+          style={{
+            marginHorizontal: 12,
+            marginBottom: 4,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: t.radii.md,
+            backgroundColor: t.colors.bgSurface,
+            borderWidth: 1,
+            borderColor: t.colors.borderDefault,
+          }}
+        >
+          <Text variant="bodySm" tone="secondary">
+            {`Slow down — you're chatting too fast. Try again in ${rateLimitSecondsLeft}s.`}
+          </Text>
+        </View>
+      ) : null}
+
       <Composer
         onSubmit={handleSend}
         onVoicePress={() => {
@@ -369,10 +414,15 @@ export function ChatShell({
           router.push(path as never);
         }}
         streaming={isStreaming}
+        disabled={isRateLimited}
         initialValue={composerDraft}
         autoFocus={autoFocus}
         placeholder={
-          isEmpty ? "Type or talk to Praxis…" : "Reply to Praxis…"
+          isRateLimited
+            ? `Try again in ${rateLimitSecondsLeft}s…`
+            : isEmpty
+              ? "Type or talk to Praxis…"
+              : "Reply to Praxis…"
         }
       />
 
