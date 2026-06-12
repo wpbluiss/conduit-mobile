@@ -13,7 +13,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 14 * * *"   # daily ~7am PT; runs will error until the key secret exists (expected)
+    - cron: "25 * * * *"    # AGGRESSIVE: hourly. Dial back to "25 */3 * * *" if Max/Actions limits bite.
   workflow_dispatch: {}     # manual trigger (phone-friendly: Actions tab → Run workflow)
 
 jobs:
@@ -26,14 +26,16 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 30"
+          claude_args: "--max-turns 80"
           prompt: |
             You are Praxis's autonomous engineering agent for the conduit-nextjs repo.
             Founder (Luis) is away from his computer; you carry the build. Follow these
             rules EXACTLY — they are what make autonomous work safe:
 
-            1. SCOPE — Find the highest-priority OPEN issue labeled "claude-queue".
-               If there are none, exit immediately without any changes. Work ONE issue.
+            1. SCOPE — Work through the top 3 highest-priority OPEN issues labeled
+               "claude-queue", EACH on its own branch + its own PR. Fully finish and
+               open the PR for one before starting the next. If fewer than 3 exist, do
+               what's there; if none, exit immediately without changes.
 
             2. PREMORTEM — Before writing any code, post a brief comment on the issue:
                "How could this break the live app, leak secrets, cost money, or weaken
