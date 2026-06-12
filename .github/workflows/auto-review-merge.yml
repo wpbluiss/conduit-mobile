@@ -34,7 +34,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          claude_args: "--max-turns 40"
+          claude_args: "--max-turns 60 --permission-mode bypassPermissions"
           prompt: |
             You are the autonomous reviewer/merger ("board of directors") for this repo.
             Luis has granted FULL AUTONOMY: you may merge to production without him,
