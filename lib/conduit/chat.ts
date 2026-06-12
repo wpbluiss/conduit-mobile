@@ -20,7 +20,7 @@ import type { EmployeeId } from "./employees";
 
 export interface RespondHandlers {
   onEmployeeResolved?: (employee: EmployeeId | "team") => void;
-  onError?: (err: { message: string }) => void;
+  onError?: (err: { message: string; rateLimited?: boolean; retryAfterSeconds?: number }) => void;
   onDone?: (info: { message_id?: string; employee?: EmployeeId | "team" }) => void;
 }
 
@@ -66,7 +66,20 @@ export async function respondToMessage(
       // Functions sometimes return non-2xx with a JSON body; surface that
       // detail instead of the generic SDK message.
       const ctx = (error as { context?: { response?: Response } }).context;
-      const responseBody = await readErrorBody(ctx?.response);
+      const response = ctx?.response;
+
+      if (response?.status === 429) {
+        const retryAfter = parseRetryAfter(response.headers?.get("Retry-After"));
+        handlers.onError?.({
+          message: "Slow down — you're chatting too fast. Try again in a moment.",
+          rateLimited: true,
+          retryAfterSeconds: retryAfter ?? undefined,
+        });
+        console.warn("[chat] rate limited; Retry-After:", retryAfter);
+        return { ok: false };
+      }
+
+      const responseBody = await readErrorBody(response);
       handlers.onError?.({
         message: responseBody?.error
           ? `${responseBody.error}${responseBody.detail ? `: ${responseBody.detail}` : ""}`
@@ -108,6 +121,19 @@ async function readErrorBody(
     const text = await response.text();
     if (!text) return null;
     return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function parseRetryAfter(header: string | null | undefined): number | null {
+  if (!header) return null;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
+  // RFC 7231 HTTP-date fallback
+  try {
+    const delta = Math.ceil((new Date(header).getTime() - Date.now()) / 1000);
+    return delta > 0 ? delta : null;
   } catch {
     return null;
   }

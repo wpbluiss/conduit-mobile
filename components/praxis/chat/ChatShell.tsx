@@ -74,6 +74,7 @@ export function ChatShell({
     !!conversationId,
   );
   const [waiting, setWaiting] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string | undefined>(
     initialDraft,
@@ -210,6 +211,7 @@ export function ChatShell({
         console.warn("[Chat] appendUserMessage failed — message kept optimistic");
       }
 
+      setChatError(null);
       setWaiting(true);
       setStage(null);
 
@@ -221,6 +223,9 @@ export function ChatShell({
         {
           onError: (err) => {
             console.warn("[Chat] respond error:", err.message);
+            if (err.rateLimited) {
+              setChatError(err.message);
+            }
           },
         },
       );
@@ -359,6 +364,26 @@ export function ChatShell({
           )}
         </ErrorBoundary>
       </View>
+
+      {chatError ? (
+        <Pressable
+          onPress={() => setChatError(null)}
+          style={{
+            marginHorizontal: 12,
+            marginBottom: 4,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            borderRadius: t.radii.md,
+            backgroundColor: t.colors.bgElevated,
+            borderWidth: 1,
+            borderColor: t.colors.borderSubtle,
+          }}
+        >
+          <Text variant="bodySm" tone="secondary">
+            {chatError}
+          </Text>
+        </Pressable>
+      ) : null}
 
       <Composer
         onSubmit={handleSend}
