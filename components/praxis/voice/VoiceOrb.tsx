@@ -9,6 +9,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
+import { useReduceMotion } from "../../../hooks/useReduceMotion";
 
 export type OrbState = "idle" | "listening" | "thinking" | "speaking";
 
@@ -17,13 +18,28 @@ export interface VoiceOrbProps {
   size?: number;
 }
 
+const INTENSITY_BY_STATE: Record<OrbState, number> = {
+  idle: 0.15,
+  listening: 0.55,
+  thinking: 0.35,
+  speaking: 0.7,
+};
+
 export function VoiceOrb({ state, size = 220 }: VoiceOrbProps) {
   const t = usePraxisTheme();
+  const reduceMotion = useReduceMotion();
 
   const scale = useSharedValue(1);
   const intensity = useSharedValue(0.15);
 
   useEffect(() => {
+    if (reduceMotion) {
+      // Static orb — jump to rest values with no looping animation.
+      scale.value = withTiming(1, { duration: 0 });
+      intensity.value = withTiming(INTENSITY_BY_STATE[state], { duration: 0 });
+      return;
+    }
+
     if (state === "idle") {
       scale.value = withRepeat(
         withSequence(
@@ -65,7 +81,7 @@ export function VoiceOrb({ state, size = 220 }: VoiceOrbProps) {
       );
       intensity.value = withTiming(0.7, { duration: 400 });
     }
-  }, [state, scale, intensity]);
+  }, [state, reduceMotion, scale, intensity]);
 
   const outerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
