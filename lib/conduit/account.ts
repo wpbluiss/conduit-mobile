@@ -49,6 +49,29 @@ export async function getOrCreateAccount(): Promise<ConduitAccount | null> {
   return cachedAccount;
 }
 
+export async function updateAccountOnboarding(fields: {
+  business_type: string;
+  business_description: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Not authenticated" };
+
+  const { data, error } = await supabase
+    .from("conduit_accounts")
+    .update(fields)
+    .eq("owner_user_id", user.id)
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Update failed" };
+  }
+  cachedAccount = data as ConduitAccount;
+  return { ok: true };
+}
+
 export function clearAccountCache() {
   cachedAccount = null;
 }
