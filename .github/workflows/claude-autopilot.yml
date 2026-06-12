@@ -1,0 +1,63 @@
+name: Praxis Autopilot
+
+# Autonomous engineering agent. Runs on a schedule (and on-demand from the
+# Actions tab → "Run workflow", which works from your phone browser) to pull
+# the highest-priority queued task, implement it on a branch, and open a PR
+# you approve from your phone. It NEVER pushes to production directly.
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+on:
+  schedule:
+    - cron: "0 14 * * *"   # daily ~7am PT; runs will error until the key secret exists (expected)
+  workflow_dispatch: {}     # manual trigger (phone-friendly: Actions tab → Run workflow)
+
+jobs:
+  autopilot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--max-turns 30"
+          prompt: |
+            You are Praxis's autonomous engineering agent for the conduit-nextjs repo.
+            Founder (Luis) is away from his computer; you carry the build. Follow these
+            rules EXACTLY — they are what make autonomous work safe:
+
+            1. SCOPE — Find the highest-priority OPEN issue labeled "claude-queue".
+               If there are none, exit immediately without any changes. Work ONE issue.
+
+            2. PREMORTEM — Before writing any code, post a brief comment on the issue:
+               "How could this break the live app, leak secrets, cost money, or weaken
+               security?" Then plan around those risks. If the honest answer is "this is
+               risky or ambiguous," DO NOT implement — comment your questions and stop.
+
+            3. SAFETY — Work on a NEW branch and open a Pull Request. NEVER push to main.
+               Do NOT touch auth, billing, RLS, secrets, or env config unless the issue
+               explicitly says so (and then call it out loudly in the PR). Do NOT modify
+               anything under src/**/finance/** — that is a separate workstream.
+
+            4. VERIFY — `npm run build` and `npx tsc --noEmit` must pass before you open
+               the PR. If you can't get green within your turn budget, open it as a DRAFT
+               and comment exactly what's blocked.
+
+            5. CONTEXT — Read CLAUDE.md, AGENTS.md, and specs/ as your knowledge base;
+               match the existing patterns. This repo is the founder's life's work — treat
+               it with that care.
+
+            6. HANDOFF — You MUST open the Pull Request yourself, do not stop at pushing
+               a branch. After committing, run:
+               `git push -u origin <your-branch>` then
+               `gh pr create --base main --head <your-branch> --title "<concise>" --body "<summary + premortem + what to verify>"`
+               (the `gh` CLI is installed and authenticated via GITHUB_TOKEN). In the PR:
+               link the issue, summarize the change, paste your premortem, and list exactly
+               what Luis should check before merging. Keep PRs small and single-purpose so
+               they're easy to approve from a phone. Then comment the PR link on the issue.

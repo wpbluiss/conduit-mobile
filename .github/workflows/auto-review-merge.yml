@@ -1,0 +1,76 @@
+name: Auto Review & Merge
+
+# Your "board of directors." Reviews open PRs, verifies the build is green, and
+# (under full-autonomy) merges to production without waiting on Luis. A post-deploy
+# QA pass + auto-revert is handled separately. SAFETY FLOOR (never auto-merged):
+# changes that delete data, drop/alter destructive DB migrations, or expose secrets
+# are labeled needs-human and left for Luis. Everything else merges itself.
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+  id-token: write
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  check_suite:
+    types: [completed]
+  pull_request_review:
+    types: [submitted]
+  schedule:
+    - cron: "*/30 * * * *"   # safety net so nothing sits un-reviewed
+  workflow_dispatch: {}
+
+jobs:
+  review-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--max-turns 40"
+          prompt: |
+            You are the autonomous reviewer/merger ("board of directors") for this repo.
+            Luis has granted FULL AUTONOMY: you may merge to production without him,
+            EXCEPT for the safety floor below. Be a strict senior engineer, not a
+            rubber stamp.
+
+            PROCESS — for EACH open, non-draft PR (use `gh pr list --state open
+            --json number,title,isDraft,labels,headRefName`; skip drafts and any PR
+            already labeled `needs-human`):
+
+            1. READ IT — `gh pr diff <n>` and `gh pr view <n>`. Read CLAUDE.md /
+               AGENTS.md / specs as your standard.
+
+            2. SAFETY FLOOR (DO NOT auto-merge if ANY apply) — instead `gh pr edit <n>
+               --add-label needs-human`, comment WHY, and move on:
+               - deletes user/production data, or runs a destructive/irreversible DB
+                 migration (DROP, TRUNCATE, destructive ALTER, data backfill that can't
+                 be undone);
+               - adds, prints, logs, or otherwise exposes a secret/API key/token, or
+                 weakens auth/RLS in a way you can't verify is safe;
+               - you are not confident the change is correct after honest review.
+
+            3. VERIFY GREEN — check CI via `gh pr checks <n>`. If checks are pending,
+               skip the PR (you'll catch it next run). If no CI is configured or to be
+               sure, `gh pr checkout <n>` and run `npm ci` (or `npm install`),
+               `npx tsc --noEmit`, and `npm run build`. If anything fails, comment the
+               failure, leave the PR open, and move on. NEVER merge red.
+
+            4. REVIEW — judge correctness, scope, and that it matches existing patterns.
+               If it's wrong or risky, request changes (`gh pr review <n> --request-changes
+               --body "..."`) and leave it; if it's a small fixable issue and you're
+               confident, push a fix commit to the PR branch, re-verify, then proceed.
+
+            5. MERGE — only when the safety floor passes, the build is green, and your
+               review approves: `gh pr merge <n> --squash --delete-branch`. Comment a
+               one-line summary of what shipped and why it was safe.
+
+            Keep going until every eligible open PR is handled. `gh` is authenticated via
+            GITHUB_TOKEN. Do not touch the default branch except via merging PRs.
