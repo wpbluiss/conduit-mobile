@@ -94,7 +94,8 @@ function RootLayoutInner() {
     if (isBootstrapping || !fontsLoaded) return;
     if (navigationLockRef.current) return;
 
-    const inAuth = segments[0] === "(auth)";
+    // "auth" covers the top-level /auth/callback deep-link handler (outside the (auth) group)
+    const inAuth = segments[0] === "(auth)" || segments[0] === "auth";
     const inApp = segments[0] === "(app)";
 
     const navigate = (route: string) => {
