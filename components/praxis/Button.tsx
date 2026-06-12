@@ -100,26 +100,44 @@ export function Button({
   return (
     <Pressable
       {...rest}
+      accessible
+      accessibilityRole="button"
       disabled={isDisabled}
       onPress={handlePress}
-      style={({ pressed }) => [
-        {
-          height: dims.height,
-          paddingHorizontal: variant === "link" ? 0 : dims.paddingH,
-          paddingVertical: variant === "link" ? 0 : dims.paddingV,
-          borderRadius: variant === "link" ? 0 : t.radii.md,
-          borderWidth: variant === "secondary" ? 1 : 0,
-          borderColor: palette.border,
-          backgroundColor: pressed ? palette.bgPressed : palette.bg,
-          opacity: isDisabled ? 0.5 : 1,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          alignSelf: fullWidth ? "stretch" : "flex-start",
-          gap: 8,
-        },
-        style,
-      ]}
+      style={({ pressed, focused }) => {
+        // Keyboard / accessibility focus ring — ember brand color, 2px weight.
+        // `focused` is true only for hardware keyboard and VoiceOver/TalkBack
+        // navigation; it is NOT set during touch interaction, matching the web's
+        // :focus-visible behaviour.
+        const showFocusRing = focused && variant !== "link";
+        const borderWidth = showFocusRing
+          ? 2
+          : variant === "secondary"
+          ? 1
+          : 0;
+        const borderColor = showFocusRing
+          ? t.colors.ember
+          : palette.border;
+
+        return [
+          {
+            height: dims.height,
+            paddingHorizontal: variant === "link" ? 0 : dims.paddingH,
+            paddingVertical: variant === "link" ? 0 : dims.paddingV,
+            borderRadius: variant === "link" ? 0 : t.radii.md,
+            borderWidth,
+            borderColor,
+            backgroundColor: pressed ? palette.bgPressed : palette.bg,
+            opacity: isDisabled ? 0.5 : 1,
+            flexDirection: "row" as const,
+            alignItems: "center" as const,
+            justifyContent: "center" as const,
+            alignSelf: fullWidth ? "stretch" as const : "flex-start" as const,
+            gap: 8,
+          },
+          style,
+        ];
+      }}
     >
       {loading ? (
         <ActivityIndicator size="small" color={palette.ink} />
