@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   KeyboardAvoidingView,
@@ -20,6 +20,11 @@ import {
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
+import {
+  trackPageView,
+  trackSignupStarted,
+  trackSignupCompleted,
+} from "../../lib/conduit/analytics";
 
 const PRIVACY_POLICY_URL = "https://conduitai.io/privacy";
 
@@ -34,6 +39,10 @@ export default function SignUpScreen() {
   const [consentChecked, setConsentChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    trackPageView("signup");
+  }, []);
 
   const onSubmit = async () => {
     if (!email.trim() || !password) {
@@ -50,12 +59,14 @@ export default function SignUpScreen() {
     }
     setError(null);
     setSubmitting(true);
+    trackSignupStarted();
     try {
       await signUp(email.trim().toLowerCase(), password, {
         full_name: name.trim() || null,
         ai_data_consent: true,
         ai_data_consent_date: new Date().toISOString(),
       });
+      trackSignupCompleted();
       router.replace("/(app)");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not create your account.";
