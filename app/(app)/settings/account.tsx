@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, Pressable, Alert } from "react-native";
+import { View, ScrollView, Pressable, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, SignOut, Trash } from "phosphor-react-native";
@@ -7,7 +7,8 @@ import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, Button, Input } from "../../../components/praxis";
 import { useAuthStore } from "../../../store/authStore";
 import { getOrCreateAccount, deleteAccount } from "../../../lib/conduit/account";
-import type { ConduitAccount } from "../../../lib/conduit/types";
+import { getCurrentUser, AuthError } from "../../../lib/conduit/me";
+import type { ConduitAccount, CurrentUser } from "../../../lib/conduit/types";
 
 export default function AccountSettingsScreen() {
   const t = usePraxisTheme();
@@ -15,11 +16,41 @@ export default function AccountSettingsScreen() {
   const { user, signOut } = useAuthStore();
 
   const [account, setAccount] = useState<ConduitAccount | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [meLoading, setMeLoading] = useState(true);
+  const [meError, setMeError] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     getOrCreateAccount().then(setAccount);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMeLoading(true);
+    setMeError(null);
+    getCurrentUser()
+      .then((me) => {
+        if (!cancelled) setCurrentUser(me);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (err instanceof AuthError) {
+          // Token missing or expired — return to sign-in
+          router.replace("/(auth)/sign-in");
+          return;
+        }
+        const msg = err instanceof Error ? err.message : "Could not load profile";
+        setMeError(msg);
+        console.warn("[AccountSettings] GET /me failed:", msg);
+      })
+      .finally(() => {
+        if (!cancelled) setMeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSignOut = () => {
@@ -106,7 +137,40 @@ export default function AccountSettingsScreen() {
 
         <Field label="Workspace" value={account?.name ?? "—"} />
         <Field label="Email" value={user?.email ?? "—"} />
-        <Field label="Tier" value={(account?.tier_id ?? "free").toUpperCase()} />
+
+        {meLoading ? (
+          <View
+            style={{
+              padding: 14,
+              borderRadius: t.radii.md,
+              backgroundColor: t.colors.bgSurface,
+              borderWidth: 1,
+              borderColor: t.colors.borderSubtle,
+              alignItems: "center",
+            }}
+          >
+            <ActivityIndicator size="small" color={t.colors.indigo500} />
+          </View>
+        ) : meError ? (
+          <View
+            style={{
+              padding: 14,
+              borderRadius: t.radii.md,
+              backgroundColor: t.colors.bgSurface,
+              borderWidth: 1,
+              borderColor: t.colors.danger,
+            }}
+          >
+            <Text variant="caption" tone="tertiary" weight="semibold">
+              PLAN
+            </Text>
+            <Text variant="bodySm" style={{ marginTop: 4, color: t.colors.danger }}>
+              {meError}
+            </Text>
+          </View>
+        ) : (
+          <Field label="Plan" value={(currentUser?.plan ?? "free").toUpperCase()} />
+        )}
 
         <View style={{ marginTop: 16 }}>
           <Button
