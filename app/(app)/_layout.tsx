@@ -4,33 +4,6 @@ import { Stack } from "expo-router";
 import { useURL, parse as parseLinkingURL } from "expo-linking";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 
-export default function AppLayout() {
-  const t = usePraxisTheme();
-  useBillingReturnFeedback();
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: t.colors.bgCanvas },
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="chat" />
-      <Stack.Screen name="builds" />
-      <Stack.Screen name="team" />
-      <Stack.Screen name="settings" />
-      <Stack.Screen
-        name="voice"
-        options={{
-          presentation: "modal",
-          animation: "slide_from_bottom",
-          contentStyle: { backgroundColor: "#08070C" },
-        }}
-      />
-    </Stack>
-  );
-}
-
 const BILLING_MESSAGES: Record<string, { title: string; message: string }> = {
   "checkout:success": {
     title: "Payment received",
@@ -68,4 +41,32 @@ function useBillingReturnFeedback() {
       Alert.alert(title, message, [{ text: "OK" }]);
     }
   }, [url]);
+}
+
+export default function AppLayout() {
+  const t = usePraxisTheme();
+  useBillingReturnFeedback();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: t.colors.bgCanvas },
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="chat" />
+      <Stack.Screen name="builds" />
+      <Stack.Screen name="team" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen
+        name="voice"
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          contentStyle: { backgroundColor: "#08070C" },
+        }}
+      />
+    </Stack>
+  );
 }
