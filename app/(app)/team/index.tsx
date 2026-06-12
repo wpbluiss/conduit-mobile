@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, ScrollView, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowRight, Microphone } from "phosphor-react-native";
+import { ArrowRight, Microphone, Radio } from "phosphor-react-native";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, EmployeeAvatar } from "../../../components/praxis";
@@ -74,6 +74,11 @@ export default function TeamIndexScreen() {
     router.push("/(app)/voice" as never);
   };
 
+  const openLiveRoom = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    router.push("/(app)/voice-room" as never);
+  };
+
   // Order: most recent activity first, then alphabetical for never-active.
   const ordered = [...activity].sort((a, b) => {
     if (a.lastAt && b.lastAt) {
@@ -123,24 +128,44 @@ export default function TeamIndexScreen() {
               thread or start a new one.
             </Text>
           </View>
-          <Pressable
-            onPress={openVoice}
-            hitSlop={6}
-            style={({ pressed }) => ({
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: pressed
-                ? t.colors.indigo500
-                : t.colors.indigoSoft,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: t.colors.indigo300,
-            })}
-          >
-            <Microphone size={20} color={t.colors.indigo500} weight="bold" />
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pressable
+              onPress={openLiveRoom}
+              hitSlop={6}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: pressed
+                  ? "rgba(109, 40, 217, 0.25)"
+                  : "rgba(109, 40, 217, 0.12)",
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(109, 40, 217, 0.35)",
+              })}
+            >
+              <Radio size={20} color="#6D28D9" weight="fill" />
+            </Pressable>
+            <Pressable
+              onPress={openVoice}
+              hitSlop={6}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: pressed
+                  ? t.colors.indigo500
+                  : t.colors.indigoSoft,
+                alignItems: "center",
+                justifyContent: "center",
+                borderWidth: 1,
+                borderColor: t.colors.indigo300,
+              })}
+            >
+              <Microphone size={20} color={t.colors.indigo500} weight="bold" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={{ gap: 10 }}>
