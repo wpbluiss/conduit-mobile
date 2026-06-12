@@ -15,6 +15,8 @@ export interface ConduitAccount {
   monthly_tokens_used: number | null;
   bonus_tokens: number | null;
   billing_cycle_start: string | null;
+  /** Creator Mode v2: when true, reasoning/code tasks use Opus on this account. */
+  creator_mode: boolean | null;
   voice_enabled: boolean | null;
   voice_speed: number | null;
   voice_auto_play: boolean | null;
