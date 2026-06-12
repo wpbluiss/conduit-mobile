@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { authedFetch } from "./api";
 import type { ConduitAccount } from "./types";
 
 let cachedAccount: ConduitAccount | null = null;
@@ -54,4 +55,44 @@ export function clearAccountCache() {
 
 export function getCachedAccount(): ConduitAccount | null {
   return cachedAccount;
+}
+
+export type DeleteAccountResult =
+  | { ok: true }
+  | { ok: false; protected: true }
+  | { ok: false; protected?: false; message: string };
+
+/**
+ * Permanently delete the authenticated user's account.
+ * Calls the server-side endpoint which cascades all data and deletes the auth
+ * user. Returns { ok: true } on success, { ok: false, protected: true } if
+ * the account is an internal/founder account (403), or an error message.
+ */
+export async function deleteAccount(): Promise<DeleteAccountResult> {
+  try {
+    const res = await authedFetch("/api/conduit/account/delete", {
+      method: "POST",
+    });
+
+    if (res.ok || res.status === 404) {
+      cachedAccount = null;
+      return { ok: true };
+    }
+
+    if (res.status === 403) {
+      return { ok: false, protected: true };
+    }
+
+    let message = `Server error (${res.status})`;
+    try {
+      const body = await res.json();
+      if (typeof body?.error === "string") message = body.error;
+    } catch {
+      // ignore parse error, use default message
+    }
+    return { ok: false, message };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Network error";
+    return { ok: false, message };
+  }
 }
