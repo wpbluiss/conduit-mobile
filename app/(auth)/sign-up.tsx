@@ -22,6 +22,7 @@ import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
 
 const PRIVACY_POLICY_URL = "https://conduitai.io/privacy";
+const TERMS_URL = "https://conduitai.io/terms";
 
 export default function SignUpScreen() {
   const t = usePraxisTheme();
@@ -31,9 +32,12 @@ export default function SignUpScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [consentChecked, setConsentChecked] = useState(false);
+  const [aiConsentChecked, setAiConsentChecked] = useState(false);
+  const [tosChecked, setTosChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const allConsented = aiConsentChecked && tosChecked;
 
   const onSubmit = async () => {
     if (!email.trim() || !password) {
@@ -44,8 +48,12 @@ export default function SignUpScreen() {
       setError("Password must be at least 8 characters.");
       return;
     }
-    if (!consentChecked) {
+    if (!aiConsentChecked) {
       setError("Please agree to AI data processing to continue.");
+      return;
+    }
+    if (!tosChecked) {
+      setError("Please agree to the Terms of Service to continue.");
       return;
     }
     setError(null);
@@ -55,6 +63,8 @@ export default function SignUpScreen() {
         full_name: name.trim() || null,
         ai_data_consent: true,
         ai_data_consent_date: new Date().toISOString(),
+        tos_accepted: true,
+        tos_accepted_date: new Date().toISOString(),
       });
       router.replace("/(app)");
     } catch (e: unknown) {
@@ -181,7 +191,7 @@ export default function SignUpScreen() {
             </View>
 
             <Pressable
-              onPress={() => setConsentChecked((c) => !c)}
+              onPress={() => setAiConsentChecked((c) => !c)}
               style={{
                 flexDirection: "row",
                 alignItems: "flex-start",
@@ -189,11 +199,11 @@ export default function SignUpScreen() {
                 paddingVertical: 4,
               }}
               accessibilityRole="checkbox"
-              accessibilityState={{ checked: consentChecked }}
+              accessibilityState={{ checked: aiConsentChecked }}
               accessibilityLabel="I agree to AI data processing as described above"
               hitSlop={8}
             >
-              {consentChecked ? (
+              {aiConsentChecked ? (
                 <CheckSquare
                   size={22}
                   color={t.colors.indigo500}
@@ -211,13 +221,53 @@ export default function SignUpScreen() {
               </Text>
             </Pressable>
 
+            <Pressable
+              onPress={() => setTosChecked((c) => !c)}
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                gap: 12,
+                paddingVertical: 4,
+              }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: tosChecked }}
+              accessibilityLabel="I agree to the Terms of Service"
+              hitSlop={8}
+            >
+              {tosChecked ? (
+                <CheckSquare
+                  size={22}
+                  color={t.colors.indigo500}
+                  weight="fill"
+                />
+              ) : (
+                <Square size={22} color={t.colors.inkTertiary} />
+              )}
+              <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", marginTop: 1 }}>
+                <Text variant="bodySm" tone="secondary" style={{ lineHeight: 19 }}>
+                  I agree to the{" "}
+                </Text>
+                <Pressable
+                  onPress={() => Linking.openURL(TERMS_URL)}
+                  hitSlop={4}
+                >
+                  <Text variant="bodySm" tone="indigo" weight="medium" style={{ lineHeight: 19 }}>
+                    Terms of Service
+                  </Text>
+                </Pressable>
+                <Text variant="bodySm" tone="secondary" style={{ lineHeight: 19 }}>
+                  .
+                </Text>
+              </View>
+            </Pressable>
+
             <Button
               label={submitting ? "Creating…" : "Create account"}
               variant="primary"
               size="lg"
               fullWidth
               loading={submitting}
-              disabled={!consentChecked}
+              disabled={!allConsented}
               onPress={onSubmit}
             />
           </View>
