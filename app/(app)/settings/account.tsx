@@ -7,6 +7,7 @@ import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, Button, Input } from "../../../components/praxis";
 import { useAuthStore } from "../../../store/authStore";
 import { getOrCreateAccount, deleteAccount } from "../../../lib/conduit/account";
+import { getCurrentUser, type CurrentUser } from "../../../lib/conduit/me";
 import type { ConduitAccount } from "../../../lib/conduit/types";
 
 export default function AccountSettingsScreen() {
@@ -15,11 +16,13 @@ export default function AccountSettingsScreen() {
   const { user, signOut } = useAuthStore();
 
   const [account, setAccount] = useState<ConduitAccount | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     getOrCreateAccount().then(setAccount);
+    getCurrentUser().then(setCurrentUser);
   }, []);
 
   const handleSignOut = () => {
@@ -105,8 +108,8 @@ export default function AccountSettingsScreen() {
         </View>
 
         <Field label="Workspace" value={account?.name ?? "—"} />
-        <Field label="Email" value={user?.email ?? "—"} />
-        <Field label="Tier" value={(account?.tier_id ?? "free").toUpperCase()} />
+        <Field label="Email" value={currentUser?.email ?? user?.email ?? "—"} />
+        <Field label="Plan" value={(currentUser?.plan ?? account?.tier_id ?? "free").toUpperCase()} />
 
         <View style={{ marginTop: 16 }}>
           <Button
