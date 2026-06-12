@@ -1,66 +1,46 @@
 import React from "react";
-import { View, ScrollView, Pressable } from "react-native";
+import { View, ScrollView, Pressable, Linking } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  CaretRight,
-  UserCircle,
-  Microphone,
-  Brain,
-  Sun,
-  Info,
-  Scroll,
-} from "phosphor-react-native";
-import Constants from "expo-constants";
+import { ArrowLeft, ArrowSquareOut, ShieldCheck, Scroll, Article } from "phosphor-react-native";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../../../components/praxis";
 
-interface Row {
-  href: string;
+const PRIVACY_POLICY_URL = "https://conduitai.io/privacy";
+const TERMS_URL = "https://conduitai.io/terms";
+const AUP_URL = "https://conduitai.io/legal/acceptable-use";
+
+interface LegalRow {
   label: string;
   hint: string;
+  url: string;
   icon: (color: string) => React.ReactNode;
 }
 
-const ROWS: Row[] = [
+const ROWS: LegalRow[] = [
   {
-    href: "/(app)/settings/account",
-    label: "Account",
-    hint: "Profile, email, sign out",
-    icon: (c) => <UserCircle size={18} color={c} weight="fill" />,
+    label: "Privacy Policy",
+    hint: "How we collect and use your data",
+    url: PRIVACY_POLICY_URL,
+    icon: (c) => <ShieldCheck size={18} color={c} weight="fill" />,
   },
   {
-    href: "/(app)/settings/voice-prefs",
-    label: "Voice preferences",
-    hint: "Audio output, captions",
-    icon: (c) => <Microphone size={18} color={c} />,
+    label: "Terms of Service",
+    hint: "Your rights and responsibilities",
+    url: TERMS_URL,
+    icon: (c) => <Scroll size={18} color={c} weight="fill" />,
   },
   {
-    href: "/(app)/settings/memory",
-    label: "Memory",
-    hint: "What Atlas remembers",
-    icon: (c) => <Brain size={18} color={c} />,
-  },
-  {
-    href: "/(app)/settings/appearance",
-    label: "Appearance",
-    hint: "Light, dark, or system",
-    icon: (c) => <Sun size={18} color={c} weight="fill" />,
-  },
-  {
-    href: "/(app)/settings/legal",
-    label: "Legal",
-    hint: "Privacy, Terms, Acceptable Use",
-    icon: (c) => <Scroll size={18} color={c} />,
+    label: "Acceptable Use Policy",
+    hint: "What you may and may not do",
+    url: AUP_URL,
+    icon: (c) => <Article size={18} color={c} weight="fill" />,
   },
 ];
 
-export default function SettingsIndexScreen() {
+export default function LegalScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
-  const version = Constants.expoConfig?.version ?? "1.0.0";
-  const build = Constants.expoConfig?.ios?.buildNumber ?? "?";
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.colors.bgCanvas }} edges={["top"]}>
@@ -82,10 +62,10 @@ export default function SettingsIndexScreen() {
       >
         <View style={{ marginBottom: 24 }}>
           <Text variant="caption" tone="indigo" weight="semibold">
-            SETTINGS
+            LEGAL
           </Text>
           <Text variant="displayLg" family="display" weight="semibold">
-            How Praxis behaves.
+            Policies &amp; terms.
           </Text>
         </View>
 
@@ -100,8 +80,8 @@ export default function SettingsIndexScreen() {
         >
           {ROWS.map((row, i) => (
             <Pressable
-              key={row.href}
-              onPress={() => router.push(row.href as never)}
+              key={row.url}
+              onPress={() => Linking.openURL(row.url)}
               style={({ pressed }) => ({
                 flexDirection: "row",
                 alignItems: "center",
@@ -133,22 +113,9 @@ export default function SettingsIndexScreen() {
                   {row.hint}
                 </Text>
               </View>
-              <CaretRight size={14} color={t.colors.inkTertiary} />
+              <ArrowSquareOut size={14} color={t.colors.inkTertiary} />
             </Pressable>
           ))}
-        </View>
-
-        <View
-          style={{
-            marginTop: 32,
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <Info size={14} color={t.colors.inkTertiary} />
-          <Text variant="caption" tone="tertiary">
-            Praxis Console · v{version} (build {build})
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
