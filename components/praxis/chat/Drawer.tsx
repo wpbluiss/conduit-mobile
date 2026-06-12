@@ -66,7 +66,7 @@ export interface DrawerProps {
   activeConversationId?: string | null;
   onSelectConversation: (id: string) => void;
   onNewChat: () => void;
-  onSelectEmployee: (employeeId: EmployeeId) => void;
+  onSelectEmployee: (employeeId: EmployeeId | "team") => void;
 }
 
 interface ConversationGroup {
@@ -161,7 +161,7 @@ export function Drawer({
     onClose();
   };
 
-  const handleEmployee = (emp: EmployeeId) => {
+  const handleEmployee = (emp: EmployeeId | "team") => {
     Haptics.selectionAsync().catch(() => {});
     onSelectEmployee(emp);
     onClose();
@@ -328,9 +328,7 @@ export function Drawer({
                 </Text>
                 {g.items.map((c) => {
                   const isActive = c.id === activeConversationId;
-                  // Unread tracking isn't modeled in the DB yet; the affordance
-                  // is here so we can flip it on once last_read_at lands.
-                  const isUnread = false;
+                  const employeeId = c.dominant_employee as EmployeeId | "team" | null | undefined;
                   return (
                     <Pressable
                       key={c.id}
@@ -350,21 +348,9 @@ export function Drawer({
                             : "transparent",
                       })}
                     >
-                      <View
-                        style={{
-                          width: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        {isUnread ? (
-                          <View
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor: t.colors.violet700,
-                            }}
-                          />
+                      <View style={{ width: 22, alignItems: "center" }}>
+                        {employeeId ? (
+                          <EmployeeAvatar employee={employeeId} size="xs" />
                         ) : null}
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
@@ -436,6 +422,29 @@ export function Drawer({
             <SectionLabel icon={<PushPinSimple size={11} color={t.colors.inkTertiary} weight="fill" />}>
               PINNED
             </SectionLabel>
+            <Pressable
+              key="team"
+              onPress={() => handleEmployee("team")}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                paddingHorizontal: 6,
+                paddingVertical: 8,
+                borderRadius: t.radii.md,
+                backgroundColor: pressed ? t.colors.bgElevated : "transparent",
+              })}
+            >
+              <EmployeeAvatar employee="team" size="xs" />
+              <View style={{ flex: 1 }}>
+                <Text variant="bodySm" weight="medium">
+                  Team round-table
+                </Text>
+                <Text variant="caption" tone="tertiary" style={{ letterSpacing: 0 }}>
+                  All departments together
+                </Text>
+              </View>
+            </Pressable>
             {PINNED.map((id) => {
               const e = EMPLOYEE_LIST.find((emp) => emp.id === id);
               if (!e) return null;
