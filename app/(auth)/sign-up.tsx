@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   KeyboardAvoidingView,
@@ -20,6 +20,11 @@ import {
 import { useAuthStore } from "../../store/authStore";
 import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text, Button, Input, PraxisLogo } from "../../components/praxis";
+import {
+  trackPageView,
+  trackSignupStarted,
+  trackSignupCompleted,
+} from "../../lib/analytics";
 
 const PRIVACY_POLICY_URL = "https://conduitai.io/privacy";
 const TERMS_URL = "https://conduitai.io/terms";
@@ -28,6 +33,10 @@ export default function SignUpScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
   const { signUp } = useAuthStore();
+
+  useEffect(() => {
+    trackPageView({ referrer: "signup_screen" });
+  }, []);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -58,6 +67,7 @@ export default function SignUpScreen() {
     }
     setError(null);
     setSubmitting(true);
+    trackSignupStarted();
     try {
       await signUp(email.trim().toLowerCase(), password, {
         full_name: name.trim() || null,
@@ -66,6 +76,7 @@ export default function SignUpScreen() {
         tos_accepted: true,
         tos_accepted_date: new Date().toISOString(),
       });
+      trackSignupCompleted();
       router.replace("/(app)");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Could not create your account.";
