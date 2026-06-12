@@ -24,6 +24,7 @@ import {
 import { useAuthStore } from "../store/authStore";
 import { PraxisThemeProvider, usePraxisTheme } from "../contexts/PraxisThemeContext";
 import { registerForPushNotifications } from "../lib/notifications";
+import { ErrorBoundary } from "../components/praxis/ErrorBoundary";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -96,6 +97,7 @@ function RootLayoutInner() {
 
     const inAuth = segments[0] === "(auth)";
     const inApp = segments[0] === "(app)";
+    const inNotFound = segments[0] === "+not-found";
 
     const navigate = (route: string) => {
       navigationLockRef.current = true;
@@ -104,6 +106,10 @@ function RootLayoutInner() {
         navigationLockRef.current = false;
       }, 500);
     };
+
+    // Let the +not-found page render for any unmatched route rather than
+    // silently redirecting — the screen has its own "Go home" CTA.
+    if (inNotFound) return;
 
     if (!isAuthenticated && !inAuth) {
       navigate("/(auth)/sign-in");
@@ -120,7 +126,9 @@ function RootLayoutInner() {
         barStyle={theme.isDark ? "light-content" : "dark-content"}
         backgroundColor={theme.colors.bgCanvas}
       />
-      <Slot />
+      <ErrorBoundary>
+        <Slot />
+      </ErrorBoundary>
     </View>
   );
 }
