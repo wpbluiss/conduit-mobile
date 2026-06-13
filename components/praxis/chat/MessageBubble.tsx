@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { WarningCircle } from "phosphor-react-native";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 import { EmployeeAvatar } from "../EmployeeAvatar";
@@ -11,6 +12,8 @@ export interface MessageBubbleProps {
   content: string;
   employee?: EmployeeId | "team" | null;
   pending?: boolean;
+  failed?: boolean;
+  onRetry?: () => void;
 }
 
 type Segment =
@@ -40,7 +43,7 @@ function segmentMarkdown(input: unknown): Segment[] {
   return segments;
 }
 
-export function MessageBubble({ role, content, employee, pending }: MessageBubbleProps) {
+export function MessageBubble({ role, content, employee, pending, failed, onRetry }: MessageBubbleProps) {
   const t = usePraxisTheme();
   const safeRole: MessageBubbleProps["role"] =
     role === "user" || role === "assistant" || role === "system" || role === "tool"
@@ -76,15 +79,20 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
         <EmployeeAvatar employee={(employee ?? "atlas") as EmployeeId | "team"} size="sm" />
       ) : null}
 
+      <View style={{ maxWidth: "80%", gap: 4 }}>
       <View
         style={{
-          maxWidth: "80%",
           borderRadius: t.radii.lg,
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: isUser ? t.colors.indigo500 : t.colors.bgSurface,
-          borderWidth: isUser ? 0 : 1,
+          backgroundColor: failed
+            ? "#4B1A1A"
+            : isUser
+              ? t.colors.indigo500
+              : t.colors.bgSurface,
+          borderWidth: isUser || failed ? 0 : 1,
           borderColor: isUser ? "transparent" : t.colors.borderSubtle,
+          opacity: pending ? 0.7 : 1,
         }}
       >
         {!isUser && employeeCfg ? (
@@ -127,6 +135,18 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
             ),
           )
         )}
+      </View>
+      {failed ? (
+        <Pressable
+          onPress={onRetry}
+          style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 4 }}
+        >
+          <WarningCircle size={12} color={t.colors.danger} />
+          <Text variant="caption" style={{ color: t.colors.danger }}>
+            Failed to send · Tap to retry
+          </Text>
+        </Pressable>
+      ) : null}
       </View>
     </View>
   );

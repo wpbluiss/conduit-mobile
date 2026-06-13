@@ -17,6 +17,7 @@ import { ErrorBoundary } from "../ErrorBoundary";
 import {
   appendUserMessage,
   createConversation,
+  fetchOlderMessages,
   getConversation,
   listConversations,
   subscribeToConversationStage,
@@ -86,6 +87,9 @@ export function ChatShell({
   /** Epoch ms after which the user can send again (null = not rate limited). */
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
 
   const conversationIdRef = useRef<string | null>(conversationId);
 
@@ -115,6 +119,7 @@ export function ChatShell({
       setConversation(null);
       setMessages([]);
       setLoadingMessages(false);
+      setHasOlderMessages(false);
       conversationIdRef.current = null;
       return;
     }
@@ -130,6 +135,7 @@ export function ChatShell({
       }
       setConversation(result.conversation);
       setMessages(result.messages);
+      setHasOlderMessages(result.hasMoreMessages);
       conversationIdRef.current = result.conversation.id;
       setLoadingMessages(false);
     })();
@@ -189,6 +195,45 @@ export function ChatShell({
     if (initialDraft !== undefined) setComposerDraft(initialDraft);
   }, [initialDraft]);
 
+  const handleLoadOlder = useCallback(async () => {
+    const cid = conversationIdRef.current;
+    if (!cid || !hasOlderMessages || loadingOlder) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    setLoadingOlder(true);
+    const result = await fetchOlderMessages(cid, oldest.created_at);
+    setLoadingOlder(false);
+    if (result.messages.length > 0) {
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const fresh = result.messages.filter((m) => !existingIds.has(m.id));
+        return [...fresh, ...prev];
+      });
+    }
+    setHasOlderMessages(result.hasMoreMessages);
+  }, [hasOlderMessages, loadingOlder, messages]);
+
+  const handleRetry = useCallback(
+    async (messageId: string) => {
+      const msg = messages.find((m) => m.id === messageId);
+      if (!msg) return;
+      setFailedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+      const cid = conversationIdRef.current;
+      if (!cid) return;
+      const persisted = await appendUserMessage(cid, msg.content);
+      if (persisted) {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? persisted : m)));
+      } else {
+        setFailedIds((prev) => new Set(prev).add(messageId));
+      }
+    },
+    [messages],
+  );
+
   const handleSend = useCallback(
     async (text: string) => {
       let cid = conversationIdRef.current;
@@ -227,7 +272,8 @@ export function ChatShell({
           prev.map((m) => (m.id === optimistic.id ? persisted : m)),
         );
       } else {
-        console.warn("[Chat] appendUserMessage failed — message kept optimistic");
+        console.warn("[Chat] appendUserMessage failed — marking message as failed");
+        setFailedIds((prev) => new Set(prev).add(optimistic.id));
       }
 
       setWaiting(true);
@@ -381,6 +427,10 @@ export function ChatShell({
               streaming={null}
               isWaiting={waiting}
               stage={stage}
+              failedIds={failedIds}
+              onRetry={handleRetry}
+              onLoadOlder={hasOlderMessages ? handleLoadOlder : undefined}
+              loadingOlder={loadingOlder}
             />
           )}
         </ErrorBoundary>
