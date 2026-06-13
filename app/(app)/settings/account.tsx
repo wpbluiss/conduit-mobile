@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { View, ScrollView, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, SignOut, Trash } from "phosphor-react-native";
+import { ArrowLeft, SignOut, Trash, CreditCard } from "phosphor-react-native";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, Button, Input } from "../../../components/praxis";
+import { TierBadge } from "../../../components/praxis/TierBadge";
 import { useAuthStore } from "../../../store/authStore";
 import { getOrCreateAccount, deleteAccount } from "../../../lib/conduit/account";
 import type { ConduitAccount } from "../../../lib/conduit/types";
@@ -106,9 +107,36 @@ export default function AccountSettingsScreen() {
 
         <Field label="Workspace" value={account?.name ?? "—"} />
         <Field label="Email" value={user?.email ?? "—"} />
-        <Field label="Tier" value={(account?.tier_id ?? "free").toUpperCase()} />
 
-        <View style={{ marginTop: 16 }}>
+        {/* Tier with badge */}
+        <View
+          style={{
+            padding: 14,
+            borderRadius: t.radii.md,
+            backgroundColor: t.colors.bgSurface,
+            borderWidth: 1,
+            borderColor: t.colors.borderSubtle,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Text variant="caption" tone="tertiary" weight="semibold" style={{ textTransform: "uppercase" }}>
+            Plan
+          </Text>
+          <TierBadge tierId={account?.tier_id} />
+        </View>
+
+        <Button
+          label="Billing & top-ups"
+          variant="secondary"
+          size="md"
+          fullWidth
+          iconLeft={<CreditCard size={16} color={t.colors.inkPrimary} />}
+          onPress={() => router.push("/(app)/settings/billing" as never)}
+        />
+
+        <View style={{ marginTop: 8 }}>
           <Button
             label="Sign out"
             variant="secondary"

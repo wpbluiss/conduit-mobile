@@ -6,3 +6,5 @@ export { IconBadge } from "./IconBadge";
 export { EmployeeAvatar } from "./EmployeeAvatar";
 export { PlaceholderScreen } from "./PlaceholderScreen";
 export { PraxisLogo } from "./PraxisLogo";
+export { TierBadge } from "./TierBadge";
+export { PaywallModal } from "./PaywallModal";
