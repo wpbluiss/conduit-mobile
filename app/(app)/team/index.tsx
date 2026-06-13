@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, ScrollView, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowRight, Microphone } from "phosphor-react-native";
+import { ArrowRight, Microphone, LockSimple } from "phosphor-react-native";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, EmployeeAvatar } from "../../../components/praxis";
@@ -13,6 +13,8 @@ import {
   formatRelative,
   type EmployeeActivity,
 } from "../../../lib/conduit/teamActivity";
+import { getOrCreateAccount } from "../../../lib/conduit/account";
+import { isEmployeeAllowed, requiredTierFor } from "../../../lib/conduit/tiers";
 
 // 15 minutes window for the "active" pulse — past this, employees are
 // shown as merely "available". AI workers never sleep, but recency is
@@ -23,12 +25,17 @@ export default function TeamIndexScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
   const [activity, setActivity] = useState<EmployeeActivity[]>([]);
+  const [tierId, setTierId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const rows = await getTeamActivity();
+    const [rows, account] = await Promise.all([
+      getTeamActivity(),
+      getOrCreateAccount(),
+    ]);
     setActivity(rows);
+    setTierId(account?.tier_id ?? null);
   }, []);
 
   useFocusEffect(
@@ -67,6 +74,10 @@ export default function TeamIndexScreen() {
     } else {
       router.push(`/(app)/chat/new?employee=${employee}` as never);
     }
+  };
+
+  const openEmployee = (employee: EmployeeId) => {
+    router.push(`/(app)/team/${employee}` as never);
   };
 
   const openVoice = () => {
@@ -148,9 +159,82 @@ export default function TeamIndexScreen() {
             const cfg = EMPLOYEE_LIST.find((e) => e.id === row.employee);
             if (!cfg) return null;
             const surface = EMPLOYEE_SURFACES[row.employee];
+            const allowed = isEmployeeAllowed(row.employee, tierId);
             const isActive =
+              allowed &&
               row.lastAt &&
               now.getTime() - new Date(row.lastAt).getTime() < ACTIVE_WINDOW_MS;
+
+            if (!allowed) {
+              const required = requiredTierFor(row.employee);
+              return (
+                <Pressable
+                  key={row.employee}
+                  onPress={() => openEmployee(row.employee)}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    borderRadius: t.radii.lg,
+                    backgroundColor: pressed
+                      ? t.colors.bgElevated
+                      : t.colors.bgSurface,
+                    borderWidth: 1,
+                    borderColor: t.colors.borderSubtle,
+                    opacity: 0.6,
+                  })}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View>
+                      <EmployeeAvatar employee={row.employee} size="md" />
+                      <View
+                        style={{
+                          position: "absolute",
+                          right: -2,
+                          bottom: -2,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 7,
+                          backgroundColor: t.colors.bgSurface,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1,
+                          borderColor: t.colors.borderSubtle,
+                        }}
+                      >
+                        <LockSimple size={8} color={t.colors.inkTertiary} weight="fill" />
+                      </View>
+                    </View>
+
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text variant="body" weight="semibold" numberOfLines={1}>
+                        {cfg.name}
+                      </Text>
+                      <Text
+                        variant="caption"
+                        tone="tertiary"
+                        numberOfLines={1}
+                        style={{ marginTop: 1, letterSpacing: 0.3 }}
+                      >
+                        {cfg.title.toUpperCase()}
+                      </Text>
+                      <Text
+                        variant="bodySm"
+                        tone="tertiary"
+                        numberOfLines={1}
+                        style={{ marginTop: 6 }}
+                      >
+                        {required
+                          ? `Requires ${required.label} plan`
+                          : "Not available on your plan"}
+                      </Text>
+                    </View>
+
+                    <LockSimple size={14} color={t.colors.inkTertiary} />
+                  </View>
+                </Pressable>
+              );
+            }
+
             return (
               <Pressable
                 key={row.employee}
