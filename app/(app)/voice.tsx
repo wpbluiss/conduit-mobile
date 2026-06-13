@@ -21,6 +21,9 @@ import { getConversation } from "../../lib/conduit/conversations";
 import { synthesizeSpeech } from "../../lib/conduit/voice";
 import { writeBase64AudioToCache } from "../../lib/conduit/audioPlayback";
 import { getEmployee, type EmployeeId } from "../../lib/conduit/employees";
+import { getOrCreateAccount } from "../../lib/conduit/account";
+import { isPro } from "../../lib/conduit/billing";
+import { PaywallModal } from "../../components/praxis/PaywallModal";
 
 export default function VoiceModalScreen() {
   const t = usePraxisTheme();
@@ -38,11 +41,23 @@ export default function VoiceModalScreen() {
   const [muted, setMuted] = useState(false);
   const [synthesizing, setSynthesizing] = useState(false);
   const synthedRef = useRef<string>("");
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [tierChecked, setTierChecked] = useState(false);
 
   // Stable player. We swap sources via .replace() instead of letting
   // useAudioPlayer rebuild the player when `audioUri` changes — rebuilding
   // is racy on iOS and was a contributing cause of silent previews in R19.
   const player = useAudioPlayer(null);
+
+  // Check tier on mount — show paywall for free users.
+  useEffect(() => {
+    getOrCreateAccount().then((account) => {
+      if (!isPro(account?.tier_id)) {
+        setShowPaywall(true);
+      }
+      setTierChecked(true);
+    });
+  }, []);
 
   // Only auto-load a transcript when an explicit conversationId is passed
   // in. Without one (e.g. entering voice mode from the team grid or any
@@ -349,6 +364,17 @@ export default function VoiceModalScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      {tierChecked && (
+        <PaywallModal
+          visible={showPaywall}
+          feature="Voice Mode"
+          onDismiss={() => {
+            setShowPaywall(false);
+            router.back();
+          }}
+        />
+      )}
     </View>
   );
 }
