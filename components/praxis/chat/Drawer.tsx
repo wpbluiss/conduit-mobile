@@ -33,10 +33,12 @@ import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 import { EmployeeAvatar } from "../EmployeeAvatar";
-import { EMPLOYEE_LIST, type EmployeeId } from "../../../lib/conduit/employees";
+import { EMPLOYEE_LIST, EMPLOYEES, type EmployeeId } from "../../../lib/conduit/employees";
 import { useAuthStore } from "../../../store/authStore";
 import { deriveInitial } from "../../../lib/conduit/displayName";
 import type { Conversation } from "../../../lib/conduit/types";
+
+type FilterTab = "recent" | "department";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Full screen width — partial drawers leave a ghost rail of the underlying
@@ -105,6 +107,156 @@ function formatRowTimestamp(iso: string): string {
   return format(d, "MMM d");
 }
 
+interface DeptGroup {
+  employeeId: EmployeeId | null;
+  label: string;
+  items: Conversation[];
+}
+
+function groupByDepartment(items: Conversation[]): DeptGroup[] {
+  const map = new Map<string, DeptGroup>();
+
+  for (const c of items) {
+    const emp = c.dominant_employee as EmployeeId | null | undefined;
+    const key = emp ?? "__general__";
+    if (!map.has(key)) {
+      const cfg = emp ? EMPLOYEES[emp] : null;
+      map.set(key, {
+        employeeId: emp ?? null,
+        label: cfg ? cfg.name : "General",
+        items: [],
+      });
+    }
+    map.get(key)!.items.push(c);
+  }
+
+  // Sort: known employees in EMPLOYEE_LIST order first, General last.
+  const order: string[] = [...EMPLOYEE_LIST.map((e) => e.id), "__general__"];
+  return [...map.entries()]
+    .sort(([a], [b]) => {
+      const ai = order.indexOf(a);
+      const bi = order.indexOf(b);
+      return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+    })
+    .map(([, g]) => g);
+}
+
+/** Escapes special regex characters in a string for safe use in RegExp. */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+interface HighlightTextProps {
+  text: string;
+  query: string;
+  style?: object;
+  highlightColor: string;
+}
+
+function HighlightText({ text, query, style, highlightColor }: HighlightTextProps) {
+  if (!query.trim()) {
+    return (
+      <Text variant="body" weight="semibold" numberOfLines={1} style={style as never}>
+        {text}
+      </Text>
+    );
+  }
+
+  const parts = text.split(new RegExp(`(${escapeRegex(query.trim())})`, "gi"));
+
+  return (
+    // RN Text supports nested Text for inline styling
+    <Text variant="body" weight="semibold" numberOfLines={1} style={style as never}>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.trim().toLowerCase() ? (
+          <Text
+            key={i}
+            variant="body"
+            weight="semibold"
+            style={{ color: highlightColor } as never}
+          >
+            {part}
+          </Text>
+        ) : (
+          <React.Fragment key={i}>{part}</React.Fragment>
+        ),
+      )}
+    </Text>
+  );
+}
+
+interface ConversationRowProps {
+  conversation: Conversation;
+  isActive: boolean;
+  searchQuery: string;
+  onPress: () => void;
+  t: ReturnType<typeof usePraxisTheme>;
+}
+
+function ConversationRow({ conversation: c, isActive, searchQuery, onPress, t }: ConversationRowProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        marginHorizontal: 6,
+        borderRadius: t.radii.md,
+        backgroundColor: isActive
+          ? t.colors.indigoSoft
+          : pressed
+            ? t.colors.bgElevated
+            : "transparent",
+      })}
+    >
+      {/* Unread dot placeholder — no last_read_at in schema yet */}
+      <View style={{ width: 8, alignItems: "center" }} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <HighlightText
+              text={c.title ?? "Untitled"}
+              query={searchQuery}
+              style={{ color: isActive ? t.colors.indigo500 : t.colors.inkPrimary }}
+              highlightColor={t.colors.indigo500}
+            />
+          </View>
+          <Text
+            tone="tertiary"
+            numberOfLines={1}
+            style={{
+              fontFamily: t.fonts.body,
+              fontSize: 12,
+              lineHeight: 16,
+              letterSpacing: 0,
+            } as never}
+          >
+            {formatRowTimestamp(c.updated_at)}
+          </Text>
+        </View>
+        {c.last_message_preview ? (
+          <Text
+            tone="tertiary"
+            numberOfLines={1}
+            style={{
+              fontFamily: t.fonts.body,
+              fontSize: 13,
+              lineHeight: 18,
+              marginTop: 2,
+              letterSpacing: 0,
+            } as never}
+          >
+            {c.last_message_preview}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
 export function Drawer({
   open,
   onClose,
@@ -121,6 +273,7 @@ export function Drawer({
 
   const progress = useSharedValue(0);
   const [search, setSearch] = React.useState("");
+  const [activeFilter, setActiveFilter] = React.useState<FilterTab>("recent");
 
   useEffect(() => {
     progress.value = open
@@ -154,6 +307,7 @@ export function Drawer({
   }, [conversations, search]);
 
   const groups = useMemo(() => groupConversations(filtered), [filtered]);
+  const deptGroups = useMemo(() => groupByDepartment(filtered), [filtered]);
 
   const handleSelect = (id: string) => {
     Haptics.selectionAsync().catch(() => {});
@@ -275,7 +429,7 @@ export function Drawer({
           </Pressable>
         </View>
 
-        <View style={{ paddingHorizontal: 14, paddingBottom: 10 }}>
+        <View style={{ paddingHorizontal: 14, paddingBottom: 8 }}>
           <View
             style={{
               flexDirection: "row",
@@ -291,7 +445,7 @@ export function Drawer({
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search"
+              placeholder="Search conversations"
               placeholderTextColor={t.colors.inkTertiary}
               style={{
                 flex: 1,
@@ -302,6 +456,44 @@ export function Drawer({
               }}
             />
           </View>
+
+          {/* Filter tabs */}
+          <View
+            style={{
+              flexDirection: "row",
+              gap: 6,
+              marginTop: 8,
+            }}
+          >
+            {(["recent", "department"] as FilterTab[]).map((tab) => {
+              const active = activeFilter === tab;
+              return (
+                <Pressable
+                  key={tab}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    setActiveFilter(tab);
+                  }}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 999,
+                    backgroundColor: active ? t.colors.indigoSoft : t.colors.bgElevated,
+                    borderWidth: 1,
+                    borderColor: active ? t.colors.indigo300 : t.colors.borderSubtle,
+                  }}
+                >
+                  <Text
+                    variant="caption"
+                    weight={active ? "semibold" : "regular"}
+                    style={{ color: active ? t.colors.indigo500 : t.colors.inkSecondary } as never}
+                  >
+                    {tab === "recent" ? "Recent" : "By Team"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <ScrollView
@@ -309,117 +501,67 @@ export function Drawer({
           contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
-          {groups.length === 0 ? (
+          {filtered.length === 0 ? (
             <View style={{ paddingHorizontal: 18, paddingTop: 24 }}>
               <Text variant="bodySm" tone="tertiary">
-                No conversations yet. Tap the pencil to start one.
+                {conversations.length === 0
+                  ? "No conversations yet. Tap the pencil to start one."
+                  : "No conversations match your search."}
               </Text>
             </View>
-          ) : (
+          ) : activeFilter === "recent" ? (
             groups.map((g) => (
               <View key={g.label} style={{ marginBottom: 10 }}>
                 <Text
                   variant="caption"
                   tone="tertiary"
                   weight="semibold"
-                  style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 6 }}
+                  style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 6 } as never}
                 >
                   {g.label.toUpperCase()}
                 </Text>
-                {g.items.map((c) => {
-                  const isActive = c.id === activeConversationId;
-                  // Unread tracking isn't modeled in the DB yet; the affordance
-                  // is here so we can flip it on once last_read_at lands.
-                  const isUnread = false;
-                  return (
-                    <Pressable
-                      key={c.id}
-                      onPress={() => handleSelect(c.id)}
-                      style={({ pressed }) => ({
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 10,
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        marginHorizontal: 6,
-                        borderRadius: t.radii.md,
-                        backgroundColor: isActive
-                          ? t.colors.indigoSoft
-                          : pressed
-                            ? t.colors.bgElevated
-                            : "transparent",
-                      })}
-                    >
-                      <View
-                        style={{
-                          width: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        {isUnread ? (
-                          <View
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: 4,
-                              backgroundColor: t.colors.violet700,
-                            }}
-                          />
-                        ) : null}
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <Text
-                            variant="body"
-                            weight="semibold"
-                            numberOfLines={1}
-                            style={{
-                              flex: 1,
-                              color: isActive
-                                ? t.colors.indigo500
-                                : t.colors.inkPrimary,
-                            }}
-                          >
-                            {c.title ?? "Untitled"}
-                          </Text>
-                          <Text
-                            tone="tertiary"
-                            numberOfLines={1}
-                            style={{
-                              fontFamily: t.fonts.body,
-                              fontSize: 12,
-                              lineHeight: 16,
-                              letterSpacing: 0,
-                            }}
-                          >
-                            {formatRowTimestamp(c.updated_at)}
-                          </Text>
-                        </View>
-                        {c.last_message_preview ? (
-                          <Text
-                            tone="tertiary"
-                            numberOfLines={1}
-                            style={{
-                              fontFamily: t.fonts.body,
-                              fontSize: 13,
-                              lineHeight: 18,
-                              marginTop: 2,
-                              letterSpacing: 0,
-                            }}
-                          >
-                            {c.last_message_preview}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
+                {g.items.map((c) => (
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    isActive={c.id === activeConversationId}
+                    searchQuery={search}
+                    onPress={() => handleSelect(c.id)}
+                    t={t}
+                  />
+                ))}
+              </View>
+            ))
+          ) : (
+            deptGroups.map((g) => (
+              <View key={g.employeeId ?? "__general__"} style={{ marginBottom: 12 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingHorizontal: 18,
+                    paddingTop: 4,
+                    paddingBottom: 6,
+                  }}
+                >
+                  {g.employeeId ? (
+                    <EmployeeAvatar employee={g.employeeId} size="xs" />
+                  ) : null}
+                  <Text variant="caption" tone="tertiary" weight="semibold">
+                    {g.label.toUpperCase()}
+                  </Text>
+                </View>
+                {g.items.map((c) => (
+                  <ConversationRow
+                    key={c.id}
+                    conversation={c}
+                    isActive={c.id === activeConversationId}
+                    searchQuery={search}
+                    onPress={() => handleSelect(c.id)}
+                    t={t}
+                  />
+                ))}
               </View>
             ))
           )}
