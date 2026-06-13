@@ -7,6 +7,7 @@ import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, Button, Input } from "../../../components/praxis";
 import { useAuthStore } from "../../../store/authStore";
 import { getOrCreateAccount, deleteAccount } from "../../../lib/conduit/account";
+import { getTierConfig } from "../../../lib/conduit/billing";
 import type { ConduitAccount } from "../../../lib/conduit/types";
 
 export default function AccountSettingsScreen() {
@@ -106,7 +107,7 @@ export default function AccountSettingsScreen() {
 
         <Field label="Workspace" value={account?.name ?? "—"} />
         <Field label="Email" value={user?.email ?? "—"} />
-        <Field label="Tier" value={(account?.tier_id ?? "free").toUpperCase()} />
+        <TierField tierId={account?.tier_id} />
 
         <View style={{ marginTop: 16 }}>
           <Button
@@ -180,5 +181,48 @@ function Field({ label, value }: { label: string; value: string }) {
         {value}
       </Text>
     </View>
+  );
+}
+
+function TierField({ tierId }: { tierId?: string | null }) {
+  const t = usePraxisTheme();
+  const router = useRouter();
+  const tier = getTierConfig(tierId);
+  return (
+    <Pressable
+      onPress={() => router.push("/(app)/settings/billing" as never)}
+      style={({ pressed }) => ({
+        padding: 14,
+        borderRadius: t.radii.md,
+        backgroundColor: t.colors.bgSurface,
+        borderWidth: 1,
+        borderColor: t.colors.borderSubtle,
+        opacity: pressed ? 0.7 : 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+      })}
+    >
+      <View>
+        <Text variant="caption" tone="tertiary" weight="semibold">
+          PLAN
+        </Text>
+        <Text variant="body" style={{ marginTop: 4 }}>
+          {tier.label}
+        </Text>
+      </View>
+      <View
+        style={{
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 9999,
+          backgroundColor: tier.badgeBg,
+        }}
+      >
+        <Text variant="caption" weight="semibold" style={{ color: tier.badgeColor }}>
+          {tier.label.toUpperCase()}
+        </Text>
+      </View>
+    </Pressable>
   );
 }
