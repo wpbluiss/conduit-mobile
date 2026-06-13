@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { GitBranch, CaretRight } from "phosphor-react-native";
+import { GitBranch, CaretRight, Plus } from "phosphor-react-native";
 import { formatDistanceToNow } from "date-fns";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
@@ -68,11 +68,29 @@ export function BuildsWorkspace() {
       <WorkspaceCard
         kicker="RECENT BUILDS"
         title="No builds yet"
-        body="Engineering hasn't generated anything for this account yet. Ask it to scaffold something — a landing page, a CRM, an internal tool — and it'll show up here as it builds and deploys."
+        body="Pick a template and Engineering will scaffold, build, and deploy it for you."
         accent={surface.accentColor}
         accentSoft={surface.accentSoft}
         rightSlot={<GitBranch size={16} color={surface.accentColor} weight="bold" />}
-      />
+      >
+        <Pressable
+          onPress={() => router.push("/(app)/builds/new" as never)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            paddingVertical: 10,
+            borderRadius: t.radii.md,
+            backgroundColor: pressed ? surface.accentSoft : surface.accentColor,
+          })}
+        >
+          <Plus size={14} color="#FFFFFF" weight="bold" />
+          <Text variant="bodySm" weight="semibold" style={{ color: "#FFFFFF" }}>
+            Choose a template
+          </Text>
+        </Pressable>
+      </WorkspaceCard>
     );
   }
 
@@ -121,6 +139,25 @@ export function BuildsWorkspace() {
             <CaretRight size={12} color={t.colors.inkTertiary} weight="bold" />
           </Pressable>
         ))}
+        <Pressable
+          onPress={() => router.push("/(app)/builds/new" as never)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            paddingVertical: 9,
+            borderRadius: t.radii.sm,
+            backgroundColor: pressed ? surface.accentSoft : "transparent",
+            borderWidth: 0.5,
+            borderColor: surface.accentColor,
+          })}
+        >
+          <Plus size={13} color={surface.accentColor} weight="bold" />
+          <Text variant="bodySm" weight="semibold" style={{ color: surface.accentColor }}>
+            New build
+          </Text>
+        </Pressable>
       </View>
     </WorkspaceCard>
   );
