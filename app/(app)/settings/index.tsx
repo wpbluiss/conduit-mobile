@@ -10,6 +10,7 @@ import {
   Brain,
   Sun,
   Info,
+  CreditCard,
 } from "phosphor-react-native";
 import Constants from "expo-constants";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
@@ -28,6 +29,12 @@ const ROWS: Row[] = [
     label: "Account",
     hint: "Profile, email, sign out",
     icon: (c) => <UserCircle size={18} color={c} weight="fill" />,
+  },
+  {
+    href: "/(app)/settings/billing",
+    label: "Plan & Billing",
+    hint: "Upgrade plan, token top-ups",
+    icon: (c) => <CreditCard size={18} color={c} />,
   },
   {
     href: "/(app)/settings/voice-prefs",
