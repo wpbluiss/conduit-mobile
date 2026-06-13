@@ -9,6 +9,7 @@ import {
   Microphone,
   Brain,
   Sun,
+  Sparkle,
   Info,
 } from "phosphor-react-native";
 import Constants from "expo-constants";
@@ -46,6 +47,12 @@ const ROWS: Row[] = [
     label: "Appearance",
     hint: "Light, dark, or system",
     icon: (c) => <Sun size={18} color={c} weight="fill" />,
+  },
+  {
+    href: "/(app)/settings/creator-mode",
+    label: "Creator Mode",
+    hint: "Adaptive routing vs. unified inbox",
+    icon: (c) => <Sparkle size={18} color={c} weight="fill" />,
   },
 ];
 

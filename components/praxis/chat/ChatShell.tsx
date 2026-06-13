@@ -32,6 +32,8 @@ import {
 } from "../../../lib/conduit/employees";
 import { useAuthStore } from "../../../store/authStore";
 import { deriveDisplayName } from "../../../lib/conduit/displayName";
+import { useCreatorModeStore } from "../../../store/creatorModeStore";
+import { classifyIntent } from "../../../lib/conduit/routing";
 
 const SUGGESTIONS = [
   "Brief me on what's pending.",
@@ -67,6 +69,7 @@ export function ChatShell({
   const t = usePraxisTheme();
   const router = useRouter();
   const { user } = useAuthStore();
+  const { enabled: creatorMode, initialize: initCreatorMode } = useCreatorModeStore();
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -96,6 +99,11 @@ export function ChatShell({
   useEffect(() => {
     getOrCreateAccount();
   }, []);
+
+  // Hydrate Creator Mode preference from AsyncStorage on mount.
+  useEffect(() => {
+    initCreatorMode();
+  }, [initCreatorMode]);
 
   // Load the conversation if we have an id, refresh sidebar list always.
   useEffect(() => {
@@ -233,10 +241,26 @@ export function ChatShell({
       setWaiting(true);
       setStage(null);
 
+      // When Creator Mode is OFF and no explicit routing is set, run the
+      // adaptive intent classifier to suggest the best employee. If the
+      // endpoint is unavailable (404/error), classifyIntent returns null
+      // and we fall back to Atlas routing transparently.
+      let effectiveEmployee: EmployeeId | "team" | null = routedEmployee ?? null;
+      if (!creatorMode && !effectiveEmployee) {
+        const intent = await classifyIntent(text);
+        if (intent?.suggested_employee) {
+          effectiveEmployee = intent.suggested_employee;
+        }
+      }
+      // Creator Mode ON: suppress routing — let Atlas handle everything.
+      if (creatorMode) {
+        effectiveEmployee = null;
+      }
+
       const result = await respondToMessage(
         {
           conversation_id: cid,
-          employee_override: routedEmployee ?? null,
+          employee_override: effectiveEmployee,
         },
         {
           onError: (err) => {
@@ -267,7 +291,7 @@ export function ChatShell({
       // After first turn we don't keep forcing the employee.
       setRoutedEmployee(null);
     },
-    [router, routedEmployee],
+    [router, routedEmployee, creatorMode],
   );
 
   const onSelectConversation = (id: string) => {
