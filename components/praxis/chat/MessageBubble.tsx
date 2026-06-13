@@ -11,6 +11,10 @@ export interface MessageBubbleProps {
   content: string;
   employee?: EmployeeId | "team" | null;
   pending?: boolean;
+  /** Dept/employee accent color — user bubbles use it as bg; assistant gets a left border tint. */
+  accentColor?: string;
+  /** When false, suppress the employee name label and avatar (for consecutive same-sender messages). */
+  showHeader?: boolean;
 }
 
 type Segment =
@@ -40,7 +44,14 @@ function segmentMarkdown(input: unknown): Segment[] {
   return segments;
 }
 
-export function MessageBubble({ role, content, employee, pending }: MessageBubbleProps) {
+export function MessageBubble({
+  role,
+  content,
+  employee,
+  pending,
+  accentColor,
+  showHeader = true,
+}: MessageBubbleProps) {
   const t = usePraxisTheme();
   const safeRole: MessageBubbleProps["role"] =
     role === "user" || role === "assistant" || role === "system" || role === "tool"
@@ -50,6 +61,10 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
   const employeeCfg = !isUser ? getEmployee(employee ?? null) : null;
 
   const segments = useMemo(() => segmentMarkdown(content), [content]);
+
+  // Effective bubble background: user bubbles use the dept accent (or indigo fallback);
+  // assistant bubbles stay neutral with a subtle left accent stroke.
+  const userBg = accentColor ?? t.colors.indigo500;
 
   if (safeRole === "tool" || safeRole === "system") {
     return (
@@ -67,27 +82,36 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
         flexDirection: "row",
         alignItems: "flex-start",
         paddingHorizontal: 16,
-        paddingVertical: 8,
+        // Tighten vertical gap when header is suppressed (consecutive sender)
+        paddingVertical: showHeader ? 8 : 3,
         gap: 10,
         justifyContent: isUser ? "flex-end" : "flex-start",
       }}
     >
       {!isUser ? (
-        <EmployeeAvatar employee={(employee ?? "atlas") as EmployeeId | "team"} size="sm" />
+        // Reserve space even when hidden so bubbles stay left-aligned
+        <View style={{ width: 32, alignItems: "center" }}>
+          {showHeader ? (
+            <EmployeeAvatar employee={(employee ?? "atlas") as EmployeeId | "team"} size="sm" />
+          ) : null}
+        </View>
       ) : null}
 
       <View
         style={{
-          maxWidth: "80%",
+          maxWidth: "78%",
           borderRadius: t.radii.lg,
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: isUser ? t.colors.indigo500 : t.colors.bgSurface,
+          backgroundColor: isUser ? userBg : t.colors.bgSurface,
           borderWidth: isUser ? 0 : 1,
           borderColor: isUser ? "transparent" : t.colors.borderSubtle,
+          // Subtle dept-tinted left accent on assistant bubbles
+          borderLeftWidth: !isUser && accentColor ? 3 : isUser ? 0 : 1,
+          borderLeftColor: !isUser && accentColor ? accentColor : isUser ? "transparent" : t.colors.borderSubtle,
         }}
       >
-        {!isUser && employeeCfg ? (
+        {!isUser && employeeCfg && showHeader ? (
           <Text
             variant="caption"
             weight="semibold"

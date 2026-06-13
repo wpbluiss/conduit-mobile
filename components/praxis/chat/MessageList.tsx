@@ -14,6 +14,8 @@ export interface MessageListProps {
   isWaiting?: boolean;
   /** Current typing-stage broadcast from chat-respond, if any. */
   stage?: { label: string; employee?: string | null } | null;
+  /** Dept/employee accent color for bubble theming. */
+  accentColor?: string;
 }
 
 function MessageRowFallback() {
@@ -34,7 +36,12 @@ function MessageRowFallback() {
   );
 }
 
-export function MessageList({ messages, streaming, isWaiting, stage }: MessageListProps) {
+/** Returns a key that identifies the "sender" for consecutive-grouping purposes. */
+function senderKey(msg: Message): string {
+  return msg.role === "user" ? "user" : `assistant:${msg.employee ?? "atlas"}`;
+}
+
+export function MessageList({ messages, streaming, isWaiting, stage, accentColor }: MessageListProps) {
   const listRef = useRef<FlatList<Message>>(null);
 
   useEffect(() => {
@@ -52,15 +59,21 @@ export function MessageList({ messages, streaming, isWaiting, stage }: MessageLi
           ? String(m.id)
           : `msg-${i}`
       }
-      renderItem={({ item }) => (
-        <ErrorBoundary fallback={() => <MessageRowFallback />}>
-          <MessageBubble
-            role={item.role}
-            content={item.content}
-            employee={item.employee}
-          />
-        </ErrorBoundary>
-      )}
+      renderItem={({ item, index }) => {
+        const prevMsg = index > 0 ? messages[index - 1] : null;
+        const showHeader = !prevMsg || senderKey(prevMsg) !== senderKey(item);
+        return (
+          <ErrorBoundary fallback={() => <MessageRowFallback />}>
+            <MessageBubble
+              role={item.role}
+              content={item.content}
+              employee={item.employee}
+              accentColor={accentColor}
+              showHeader={showHeader}
+            />
+          </ErrorBoundary>
+        );
+      }}
       contentContainerStyle={{ paddingVertical: 8 }}
       onContentSizeChange={() => {
         if (messages.length > 0) {
@@ -75,6 +88,7 @@ export function MessageList({ messages, streaming, isWaiting, stage }: MessageLi
                 role="assistant"
                 content={streaming.content}
                 employee={streaming.employee ?? "atlas"}
+                accentColor={accentColor}
               />
             ) : null}
             {isWaiting && !streaming?.content ? (
