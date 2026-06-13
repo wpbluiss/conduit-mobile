@@ -25,7 +25,10 @@ import {
 } from "../../../lib/conduit/conversations";
 import { respondToMessage } from "../../../lib/conduit/chat";
 import { getOrCreateAccount } from "../../../lib/conduit/account";
-import type { Conversation, Message } from "../../../lib/conduit/types";
+import { getTierConfig, isPaywalled } from "../../../lib/conduit/billing";
+import { UpgradeNudge } from "../billing/UpgradeNudge";
+import { PaywallModal } from "../billing/PaywallModal";
+import type { Conversation, Message, ConduitAccount } from "../../../lib/conduit/types";
 import {
   EMPLOYEES,
   type EmployeeId,
@@ -86,15 +89,15 @@ export function ChatShell({
   /** Epoch ms after which the user can send again (null = not rate limited). */
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
+  const [account, setAccount] = useState<ConduitAccount | null>(null);
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const conversationIdRef = useRef<string | null>(conversationId);
 
   const displayName = deriveDisplayName(user);
 
-  // Make sure account exists before any other queries; we don't need the value
-  // here, but this primes the cache so the schema-error logs don't recur.
   useEffect(() => {
-    getOrCreateAccount();
+    getOrCreateAccount().then((acc) => setAccount(acc));
   }, []);
 
   // Load the conversation if we have an id, refresh sidebar list always.
@@ -191,6 +194,10 @@ export function ChatShell({
 
   const handleSend = useCallback(
     async (text: string) => {
+      if (account && isPaywalled(account)) {
+        setPaywallVisible(true);
+        return;
+      }
       let cid = conversationIdRef.current;
 
       if (!cid) {
@@ -267,7 +274,7 @@ export function ChatShell({
       // After first turn we don't keep forcing the employee.
       setRoutedEmployee(null);
     },
-    [router, routedEmployee],
+    [router, routedEmployee, account],
   );
 
   const onSelectConversation = (id: string) => {
@@ -292,6 +299,8 @@ export function ChatShell({
 
   const isRateLimited = !!rateLimitUntil;
   const isStreaming = waiting;
+  const tier = getTierConfig(account?.tier_id);
+  const showUpgradeNudge = tier.id === "free" && !isRateLimited;
   const isEmpty = !conversation && messages.length === 0;
   const isLoadedEmptyConversation =
     !!conversation && !loadingMessages && messages.length === 0;
@@ -405,6 +414,8 @@ export function ChatShell({
         </View>
       ) : null}
 
+      {showUpgradeNudge ? <UpgradeNudge /> : null}
+
       <Composer
         onSubmit={handleSend}
         onVoicePress={() => {
@@ -436,6 +447,12 @@ export function ChatShell({
         onSelectConversation={onSelectConversation}
         onNewChat={onNewChat}
         onSelectEmployee={onSelectEmployeeFromDrawer}
+      />
+
+      <PaywallModal
+        visible={paywallVisible}
+        onDismiss={() => setPaywallVisible(false)}
+        reason="cap"
       />
     </SafeAreaView>
   );
