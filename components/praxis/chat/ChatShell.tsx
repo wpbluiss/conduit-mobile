@@ -13,6 +13,7 @@ import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
 import { ChatEmptyState } from "./ChatEmptyState";
+import { UsageCapBar } from "./UsageCapBar";
 import { ErrorBoundary } from "../ErrorBoundary";
 import {
   appendUserMessage,
@@ -30,6 +31,7 @@ import {
   EMPLOYEES,
   type EmployeeId,
 } from "../../../lib/conduit/employees";
+import { EMPLOYEE_SURFACES } from "../../../lib/conduit/surfaces";
 import { useAuthStore } from "../../../store/authStore";
 import { deriveDisplayName } from "../../../lib/conduit/displayName";
 
@@ -308,6 +310,14 @@ export function ChatShell({
     return null;
   })();
 
+  // Dept accent color: used to tint user bubbles and assistant left-border.
+  // Falls back to undefined (indigo default) if no employee is active.
+  const accentColor: string | undefined = (() => {
+    const emp = activeEmployee && activeEmployee !== "team" ? activeEmployee : null;
+    if (!emp) return undefined;
+    return EMPLOYEE_SURFACES[emp]?.accentColor;
+  })();
+
   const headerTitle = (() => {
     if (conversation?.title) return conversation.title;
     if (isEmpty && routedEmployee && routedEmployee !== "team") {
@@ -381,10 +391,13 @@ export function ChatShell({
               streaming={null}
               isWaiting={waiting}
               stage={stage}
+              accentColor={accentColor}
             />
           )}
         </ErrorBoundary>
       </View>
+
+      <UsageCapBar />
 
       {isRateLimited ? (
         <View
