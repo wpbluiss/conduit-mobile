@@ -17,6 +17,7 @@ import { ErrorBoundary } from "../ErrorBoundary";
 import {
   appendUserMessage,
   createConversation,
+  deleteConversation,
   getConversation,
   listConversations,
   subscribeToConversationStage,
@@ -290,6 +291,19 @@ export function ChatShell({
     router.push(`/(app)/chat/new?employee=${id}` as never);
   };
 
+  const handleDeleteConversation = useCallback(
+    async (id: string) => {
+      const isActive = id === conversation?.id;
+      await deleteConversation(id);
+      setConversationsList((prev) => prev.filter((c) => c.id !== id));
+      if (isActive) {
+        // Navigate away from the deleted conversation.
+        router.replace("/(app)/chat/new" as never);
+      }
+    },
+    [conversation?.id, router],
+  );
+
   const isRateLimited = !!rateLimitUntil;
   const isStreaming = waiting;
   const isEmpty = !conversation && messages.length === 0;
@@ -434,6 +448,7 @@ export function ChatShell({
         conversations={conversationsList}
         activeConversationId={conversation?.id ?? null}
         onSelectConversation={onSelectConversation}
+        onDeleteConversation={handleDeleteConversation}
         onNewChat={onNewChat}
         onSelectEmployee={onSelectEmployeeFromDrawer}
       />
