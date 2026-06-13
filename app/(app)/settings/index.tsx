@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -10,10 +10,13 @@ import {
   Brain,
   Sun,
   Info,
+  Lightning,
 } from "phosphor-react-native";
 import Constants from "expo-constants";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../../../components/praxis";
+import { getOrCreateAccount } from "../../../lib/conduit/account";
+import { isPro, tierLabel } from "../../../lib/conduit/billing";
 
 interface Row {
   href: string;
@@ -54,6 +57,11 @@ export default function SettingsIndexScreen() {
   const router = useRouter();
   const version = Constants.expoConfig?.version ?? "1.0.0";
   const build = Constants.expoConfig?.ios?.buildNumber ?? "?";
+  const [tierId, setTierId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getOrCreateAccount().then((a) => setTierId(a?.tier_id ?? null));
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.colors.bgCanvas }} edges={["top"]}>
@@ -74,9 +82,40 @@ export default function SettingsIndexScreen() {
         }}
       >
         <View style={{ marginBottom: 24 }}>
-          <Text variant="caption" tone="indigo" weight="semibold">
-            SETTINGS
-          </Text>
+          <View
+            style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          >
+            <Text variant="caption" tone="indigo" weight="semibold">
+              SETTINGS
+            </Text>
+            {tierId !== null && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: t.radii.full,
+                  backgroundColor: isPro(tierId) ? t.colors.indigoSoft : t.colors.bgElevated,
+                  borderWidth: 1,
+                  borderColor: isPro(tierId) ? t.colors.indigo500 : t.colors.borderDefault,
+                }}
+              >
+                {isPro(tierId) && <Lightning size={11} color={t.colors.indigo500} weight="fill" />}
+                <Text
+                  variant="caption"
+                  weight="semibold"
+                  style={{
+                    color: isPro(tierId) ? t.colors.indigo500 : t.colors.inkTertiary,
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  {tierLabel(tierId).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text variant="displayLg" family="display" weight="semibold">
             How Praxis behaves.
           </Text>
