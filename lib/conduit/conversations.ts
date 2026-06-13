@@ -91,9 +91,11 @@ export async function getMostRecentConversation(): Promise<Conversation | null> 
   return normalizeConversation(data);
 }
 
+const MESSAGE_PAGE_SIZE = 50;
+
 export async function getConversation(
   id: string,
-): Promise<{ conversation: Conversation; messages: Message[] } | null> {
+): Promise<{ conversation: Conversation; messages: Message[]; hasMoreMessages: boolean } | null> {
   const account = await getOrCreateAccount();
   if (!account) return null;
 
@@ -105,11 +107,13 @@ export async function getConversation(
       )
       .eq("id", id)
       .maybeSingle(),
+    // Load the most recent 50 messages; if exactly 50 returned there may be older ones.
     supabase
       .from("conduit_messages")
       .select("*")
       .eq("conversation_id", id)
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: false })
+      .limit(MESSAGE_PAGE_SIZE),
   ]);
 
   if (convoRes.error) {
@@ -121,16 +125,45 @@ export async function getConversation(
       "[Conversations] messages fetch failed:",
       messagesRes.error.message,
     );
-    // Don't crash the screen — render the conversation with zero messages
-    // and let the empty state explain.
   }
 
   const conversation = normalizeConversation(convoRes.data);
   if (!conversation || conversation.account_id !== account.id) return null;
 
+  const rows = messagesRes.data ?? [];
+  // Rows are newest-first; reverse for chronological display.
+  const messages = normalizeMessages([...rows].reverse(), conversation.id);
+
   return {
     conversation,
-    messages: normalizeMessages(messagesRes.data, conversation.id),
+    messages,
+    hasMoreMessages: rows.length === MESSAGE_PAGE_SIZE,
+  };
+}
+
+/** Fetch messages older than `beforeCreatedAt` for load-more-history. */
+export async function fetchOlderMessages(
+  conversationId: string,
+  beforeCreatedAt: string,
+  limit = MESSAGE_PAGE_SIZE,
+): Promise<{ messages: Message[]; hasMoreMessages: boolean }> {
+  const { data, error } = await supabase
+    .from("conduit_messages")
+    .select("*")
+    .eq("conversation_id", conversationId)
+    .lt("created_at", beforeCreatedAt)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn("[Conversations] fetchOlderMessages failed:", error.message);
+    return { messages: [], hasMoreMessages: false };
+  }
+
+  const rows = data ?? [];
+  return {
+    messages: normalizeMessages([...rows].reverse(), conversationId),
+    hasMoreMessages: rows.length === limit,
   };
 }
 
