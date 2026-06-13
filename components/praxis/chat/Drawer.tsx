@@ -5,6 +5,7 @@ import {
   ScrollView,
   TextInput,
   Dimensions,
+  Alert,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -65,6 +66,7 @@ export interface DrawerProps {
   conversations: Conversation[];
   activeConversationId?: string | null;
   onSelectConversation: (id: string) => void;
+  onDeleteConversation?: (id: string) => void;
   onNewChat: () => void;
   onSelectEmployee: (employeeId: EmployeeId) => void;
 }
@@ -111,6 +113,7 @@ export function Drawer({
   conversations,
   activeConversationId,
   onSelectConversation,
+  onDeleteConversation,
   onNewChat,
   onSelectEmployee,
 }: DrawerProps) {
@@ -159,6 +162,26 @@ export function Drawer({
     Haptics.selectionAsync().catch(() => {});
     onSelectConversation(id);
     onClose();
+  };
+
+  const handleLongPress = (id: string, title: string | null) => {
+    if (!onDeleteConversation) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Alert.alert(
+      "Delete conversation?",
+      `"${title ?? "Untitled"}" and all its messages will be permanently removed.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            onDeleteConversation(id);
+            onClose();
+          },
+        },
+      ],
+    );
   };
 
   const handleEmployee = (emp: EmployeeId) => {
@@ -335,6 +358,8 @@ export function Drawer({
                     <Pressable
                       key={c.id}
                       onPress={() => handleSelect(c.id)}
+                      onLongPress={() => handleLongPress(c.id, c.title ?? null)}
+                      delayLongPress={400}
                       style={({ pressed }) => ({
                         flexDirection: "row",
                         alignItems: "center",
