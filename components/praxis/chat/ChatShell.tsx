@@ -13,6 +13,7 @@ import { Composer } from "./Composer";
 import { MessageList } from "./MessageList";
 import { ChatLoadingSkeleton } from "./ChatLoadingSkeleton";
 import { ChatEmptyState } from "./ChatEmptyState";
+import { MemoryCard } from "./MemoryCard";
 import { ErrorBoundary } from "../ErrorBoundary";
 import {
   appendUserMessage,
@@ -385,6 +386,13 @@ export function ChatShell({
           )}
         </ErrorBoundary>
       </View>
+
+      {messages.length > 0 ? (
+        <MemoryCard
+          conversationId={conversation?.id ?? null}
+          messageCount={messages.length}
+        />
+      ) : null}
 
       {isRateLimited ? (
         <View
