@@ -6,6 +6,17 @@ import { EmployeeAvatar } from "../EmployeeAvatar";
 import { CodeBlock } from "./CodeBlock";
 import { getEmployee, type EmployeeId } from "../../../lib/conduit/employees";
 
+/** Convert a 6-digit hex color to rgba(...). Falls back safely on bad input. */
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return `rgba(0,0,0,${alpha})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
@@ -51,6 +62,16 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
 
   const segments = useMemo(() => segmentMarkdown(content), [content]);
 
+  // Dept-colored tint: use employee ring color at low opacity so text
+  // stays readable (inkPrimary on tinted near-white/near-black). Dark mode
+  // gets a slightly higher alpha so the tint reads on dark canvases.
+  const deptTintBg = employeeCfg
+    ? hexToRgba(employeeCfg.ringColor, t.isDark ? 0.10 : 0.07)
+    : t.colors.bgSurface;
+  const deptBorderColor = employeeCfg
+    ? hexToRgba(employeeCfg.ringColor, t.isDark ? 0.22 : 0.18)
+    : t.colors.borderSubtle;
+
   if (safeRole === "tool" || safeRole === "system") {
     return (
       <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
@@ -82,9 +103,9 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
           borderRadius: t.radii.lg,
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: isUser ? t.colors.indigo500 : t.colors.bgSurface,
-          borderWidth: isUser ? 0 : 1,
-          borderColor: isUser ? "transparent" : t.colors.borderSubtle,
+          backgroundColor: isUser ? t.colors.indigo500 : deptTintBg,
+          borderWidth: 1,
+          borderColor: isUser ? "transparent" : deptBorderColor,
         }}
       >
         {!isUser && employeeCfg ? (
