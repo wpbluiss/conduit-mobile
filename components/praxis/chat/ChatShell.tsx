@@ -1,8 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, View, Pressable } from "react-native";
+import Animated, {
+  useSharedValue,
+  withTiming,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
+import { X } from "phosphor-react-native";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 import { Drawer } from "./Drawer";
@@ -25,13 +31,14 @@ import {
 } from "../../../lib/conduit/conversations";
 import { respondToMessage } from "../../../lib/conduit/chat";
 import { getOrCreateAccount } from "../../../lib/conduit/account";
-import type { Conversation, Message } from "../../../lib/conduit/types";
+import type { ConduitAccount, Conversation, Message } from "../../../lib/conduit/types";
 import {
   EMPLOYEES,
   type EmployeeId,
 } from "../../../lib/conduit/employees";
 import { useAuthStore } from "../../../store/authStore";
 import { deriveDisplayName } from "../../../lib/conduit/displayName";
+import { useReduceMotion } from "../../../hooks/useReduceMotion";
 
 const SUGGESTIONS = [
   "Brief me on what's pending.",
@@ -86,15 +93,20 @@ export function ChatShell({
   /** Epoch ms after which the user can send again (null = not rate limited). */
   const [rateLimitUntil, setRateLimitUntil] = useState<number | null>(null);
   const [rateLimitSecondsLeft, setRateLimitSecondsLeft] = useState(0);
+  const [account, setAccount] = useState<ConduitAccount | null>(null);
+  const [capDismissed, setCapDismissed] = useState(false);
 
   const conversationIdRef = useRef<string | null>(conversationId);
 
   const displayName = deriveDisplayName(user);
 
-  // Make sure account exists before any other queries; we don't need the value
-  // here, but this primes the cache so the schema-error logs don't recur.
+  // Prime account cache and capture for cap indicator.
   useEffect(() => {
-    getOrCreateAccount();
+    let alive = true;
+    getOrCreateAccount().then((acc) => {
+      if (alive) setAccount(acc);
+    });
+    return () => { alive = false; };
   }, []);
 
   // Load the conversation if we have an id, refresh sidebar list always.
@@ -292,6 +304,15 @@ export function ChatShell({
 
   const isRateLimited = !!rateLimitUntil;
   const isStreaming = waiting;
+
+  // Usage cap: warn at 80%+ utilization. Guard against null/zero cap.
+  const capPct = (() => {
+    const cap = account?.monthly_token_cap;
+    const used = account?.monthly_tokens_used ?? 0;
+    if (!cap || cap <= 0 || used <= 0) return 0;
+    return used / cap;
+  })();
+  const showCapWarning = !capDismissed && capPct >= 0.8;
   const isEmpty = !conversation && messages.length === 0;
   const isLoadedEmptyConversation =
     !!conversation && !loadingMessages && messages.length === 0;
@@ -386,6 +407,10 @@ export function ChatShell({
         </ErrorBoundary>
       </View>
 
+      {showCapWarning ? (
+        <CapWarningBanner pct={capPct} onDismiss={() => setCapDismissed(true)} />
+      ) : null}
+
       {isRateLimited ? (
         <View
           style={{
@@ -438,6 +463,61 @@ export function ChatShell({
         onSelectEmployee={onSelectEmployeeFromDrawer}
       />
     </SafeAreaView>
+  );
+}
+
+function CapWarningBanner({
+  pct,
+  onDismiss,
+}: {
+  pct: number;
+  onDismiss: () => void;
+}) {
+  const t = usePraxisTheme();
+  const reduceMotion = useReduceMotion();
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: reduceMotion ? 0 : 220 });
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  const pctLabel = Math.round(pct * 100);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          marginHorizontal: 12,
+          marginBottom: 4,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          borderRadius: t.radii.md,
+          backgroundColor: t.colors.bgSurface,
+          borderWidth: 1,
+          borderColor: t.colors.warning,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+        },
+        animStyle,
+      ]}
+    >
+      <View style={{ flex: 1 }}>
+        <Text variant="bodySm" weight="semibold" style={{ color: t.colors.warning }}>
+          {pct >= 1 ? "Usage cap reached" : `${pctLabel}% of monthly usage`}
+        </Text>
+        <Text variant="caption" tone="secondary">
+          {pct >= 1
+            ? "You've hit your monthly token limit. Upgrade or top up to continue."
+            : "You're approaching your monthly limit. Consider upgrading your plan."}
+        </Text>
+      </View>
+      <Pressable onPress={onDismiss} hitSlop={10}>
+        <X size={16} color={t.colors.inkTertiary} />
+      </Pressable>
+    </Animated.View>
   );
 }
 
