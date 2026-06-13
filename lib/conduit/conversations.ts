@@ -10,6 +10,67 @@ import type { Conversation, Message } from "./types";
 
 const PREVIEW_MAX_LEN = 140;
 
+export interface ListConversationsPage {
+  items: Conversation[];
+  hasMore: boolean;
+}
+
+export async function listConversationsPaged(
+  limit = 20,
+  offset = 0,
+): Promise<ListConversationsPage> {
+  const account = await getOrCreateAccount();
+  if (!account) return { items: [], hasMore: false };
+
+  const { data, error } = await supabase
+    .from("conduit_conversations")
+    .select("id, account_id, title, created_at, updated_at, dominant_employee")
+    .eq("account_id", account.id)
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.warn("[Conversations] paged list failed:", error.message);
+    return { items: [], hasMore: false };
+  }
+
+  const rows = data ?? [];
+  const conversations = rows
+    .map((row) => normalizeConversation(row))
+    .filter((c): c is Conversation => c !== null);
+
+  if (conversations.length === 0) return { items: [], hasMore: false };
+
+  const ids = conversations.map((c) => c.id);
+  const { data: msgRows, error: msgErr } = await supabase
+    .from("conduit_messages")
+    .select("conversation_id, content, role, created_at")
+    .in("conversation_id", ids)
+    .order("created_at", { ascending: false });
+
+  if (!msgErr) {
+    const latestByConv = new Map<string, { content: unknown }>();
+    for (const m of msgRows ?? []) {
+      const cid = (m as { conversation_id?: string }).conversation_id;
+      if (typeof cid !== "string") continue;
+      if (latestByConv.has(cid)) continue;
+      latestByConv.set(cid, m as { content: unknown });
+    }
+    const withPreviews = conversations.map((c) => {
+      const last = latestByConv.get(c.id);
+      if (!last) return c;
+      const text = normalizeContent(last.content).replace(/\s+/g, " ").trim();
+      return {
+        ...c,
+        last_message_preview: text ? text.slice(0, PREVIEW_MAX_LEN) : null,
+      };
+    });
+    return { items: withPreviews, hasMore: rows.length === limit };
+  }
+
+  return { items: conversations, hasMore: rows.length === limit };
+}
+
 export async function listConversations(): Promise<Conversation[]> {
   const account = await getOrCreateAccount();
   if (!account) return [];

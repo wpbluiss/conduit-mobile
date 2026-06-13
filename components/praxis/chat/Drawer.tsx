@@ -27,6 +27,7 @@ import {
   PushPinSimple,
   CaretRight,
   X,
+  List,
 } from "phosphor-react-native";
 import { format, isToday, isYesterday, subDays } from "date-fns";
 import * as Haptics from "expo-haptics";
@@ -251,14 +252,20 @@ export function Drawer({
           >
             <X size={18} color={t.colors.inkPrimary} weight="bold" />
           </Pressable>
-          <Text
-            variant="caption"
-            tone="indigo"
-            weight="semibold"
-            style={{ flex: 1, textAlign: "center" }}
+          <Pressable
+            onPress={() => goRoute("/(app)/chat/list")}
+            hitSlop={10}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}
           >
-            CONVERSATIONS
-          </Text>
+            <Text
+              variant="caption"
+              tone="indigo"
+              weight="semibold"
+            >
+              CONVERSATIONS
+            </Text>
+            <List size={11} color={t.colors.indigo500} weight="bold" />
+          </Pressable>
           <Pressable
             onPress={handleNew}
             hitSlop={10}
