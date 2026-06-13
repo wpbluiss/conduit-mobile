@@ -9,6 +9,63 @@ import {
 import type { Conversation, Message } from "./types";
 
 const PREVIEW_MAX_LEN = 140;
+const PAGE_SIZE = 20;
+
+export interface ConversationsPage {
+  conversations: Conversation[];
+  hasMore: boolean;
+}
+
+/** Paginated conversation list. Attaches last-message preview per row. */
+export async function listConversationsPaged(
+  offset = 0,
+  limit = PAGE_SIZE,
+): Promise<ConversationsPage> {
+  const account = await getOrCreateAccount();
+  if (!account) return { conversations: [], hasMore: false };
+
+  const { data, error } = await supabase
+    .from("conduit_conversations")
+    .select("id, account_id, title, created_at, updated_at, dominant_employee")
+    .eq("account_id", account.id)
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.warn("[Conversations] paged list failed:", error.message);
+    return { conversations: [], hasMore: false };
+  }
+
+  const conversations = (data ?? [])
+    .map((row) => normalizeConversation(row))
+    .filter((c): c is Conversation => c !== null);
+
+  if (conversations.length === 0) return { conversations: [], hasMore: false };
+
+  const ids = conversations.map((c) => c.id);
+  const { data: msgRows } = await supabase
+    .from("conduit_messages")
+    .select("conversation_id, content, role, created_at")
+    .in("conversation_id", ids)
+    .order("created_at", { ascending: false });
+
+  const latestByConv = new Map<string, { content: unknown }>();
+  for (const m of msgRows ?? []) {
+    const cid = (m as { conversation_id?: string }).conversation_id;
+    if (typeof cid !== "string") continue;
+    if (latestByConv.has(cid)) continue;
+    latestByConv.set(cid, m as { content: unknown });
+  }
+
+  const withPreviews = conversations.map((c) => {
+    const last = latestByConv.get(c.id);
+    if (!last) return c;
+    const text = normalizeContent(last.content).replace(/\s+/g, " ").trim();
+    return { ...c, last_message_preview: text ? text.slice(0, PREVIEW_MAX_LEN) : null };
+  });
+
+  return { conversations: withPreviews, hasMore: conversations.length === limit };
+}
 
 export async function listConversations(): Promise<Conversation[]> {
   const account = await getOrCreateAccount();
