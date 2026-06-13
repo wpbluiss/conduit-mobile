@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { FlatList, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, View } from "react-native";
 import { MessageBubble } from "./MessageBubble";
 import { StreamingIndicator } from "./StreamingIndicator";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -14,6 +14,16 @@ export interface MessageListProps {
   isWaiting?: boolean;
   /** Current typing-stage broadcast from chat-respond, if any. */
   stage?: { label: string; employee?: string | null } | null;
+  /** IDs of messages that failed to persist. */
+  failedMessageIds?: Set<string>;
+  /** Called when the user taps "retry" on a failed message. */
+  onRetryMessage?: (id: string) => void;
+  /** Whether older messages can be loaded. */
+  hasOlderMessages?: boolean;
+  /** Called when the user taps "Load earlier messages". */
+  onLoadOlder?: () => void;
+  /** Whether older messages are currently being fetched. */
+  loadingOlder?: boolean;
 }
 
 function MessageRowFallback() {
@@ -34,7 +44,18 @@ function MessageRowFallback() {
   );
 }
 
-export function MessageList({ messages, streaming, isWaiting, stage }: MessageListProps) {
+export function MessageList({
+  messages,
+  streaming,
+  isWaiting,
+  stage,
+  failedMessageIds,
+  onRetryMessage,
+  hasOlderMessages,
+  onLoadOlder,
+  loadingOlder,
+}: MessageListProps) {
+  const t = usePraxisTheme();
   const listRef = useRef<FlatList<Message>>(null);
 
   useEffect(() => {
@@ -52,21 +73,45 @@ export function MessageList({ messages, streaming, isWaiting, stage }: MessageLi
           ? String(m.id)
           : `msg-${i}`
       }
-      renderItem={({ item }) => (
-        <ErrorBoundary fallback={() => <MessageRowFallback />}>
-          <MessageBubble
-            role={item.role}
-            content={item.content}
-            employee={item.employee}
-          />
-        </ErrorBoundary>
-      )}
+      renderItem={({ item }) => {
+        const isPending = String(item.id).startsWith("local-");
+        const isFailed = failedMessageIds?.has(item.id) ?? false;
+        return (
+          <ErrorBoundary fallback={() => <MessageRowFallback />}>
+            <MessageBubble
+              role={item.role}
+              content={item.content}
+              employee={item.employee}
+              pending={isPending && !isFailed}
+              timestamp={!isPending ? item.created_at : undefined}
+              failed={isFailed}
+              onRetry={isFailed && onRetryMessage ? () => onRetryMessage(item.id) : undefined}
+            />
+          </ErrorBoundary>
+        );
+      }}
       contentContainerStyle={{ paddingVertical: 8 }}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
       onContentSizeChange={() => {
         if (messages.length > 0) {
           listRef.current?.scrollToEnd({ animated: true });
         }
       }}
+      ListHeaderComponent={
+        hasOlderMessages ? (
+          <View style={{ alignItems: "center", paddingVertical: 12 }}>
+            {loadingOlder ? (
+              <ActivityIndicator size="small" color={t.colors.indigo500} />
+            ) : (
+              <Pressable onPress={onLoadOlder} hitSlop={8}>
+                <Text variant="bodySm" tone="indigo" weight="semibold">
+                  Load earlier messages
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null
+      }
       ListFooterComponent={
         streaming || isWaiting ? (
           <View>

@@ -1,16 +1,30 @@
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { format, isToday, isYesterday } from "date-fns";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text } from "../Text";
 import { EmployeeAvatar } from "../EmployeeAvatar";
 import { CodeBlock } from "./CodeBlock";
 import { getEmployee, type EmployeeId } from "../../../lib/conduit/employees";
 
+function formatMessageTime(iso: string): string {
+  const d = new Date(iso);
+  if (isToday(d)) return format(d, "h:mm a");
+  if (isYesterday(d)) return "Yesterday " + format(d, "h:mm a");
+  return format(d, "MMM d, h:mm a");
+}
+
 export interface MessageBubbleProps {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
   employee?: EmployeeId | "team" | null;
   pending?: boolean;
+  /** ISO timestamp — displayed below the bubble when provided. */
+  timestamp?: string;
+  /** Whether the message failed to persist (user messages only). */
+  failed?: boolean;
+  /** Retry handler shown when failed=true. */
+  onRetry?: () => void;
 }
 
 type Segment =
@@ -40,7 +54,7 @@ function segmentMarkdown(input: unknown): Segment[] {
   return segments;
 }
 
-export function MessageBubble({ role, content, employee, pending }: MessageBubbleProps) {
+export function MessageBubble({ role, content, employee, pending, timestamp, failed, onRetry }: MessageBubbleProps) {
   const t = usePraxisTheme();
   const safeRole: MessageBubbleProps["role"] =
     role === "user" || role === "assistant" || role === "system" || role === "tool"
@@ -76,15 +90,20 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
         <EmployeeAvatar employee={(employee ?? "atlas") as EmployeeId | "team"} size="sm" />
       ) : null}
 
+      <View style={{ maxWidth: "80%", gap: 4 }}>
       <View
         style={{
-          maxWidth: "80%",
           borderRadius: t.radii.lg,
           paddingHorizontal: 14,
           paddingVertical: 10,
-          backgroundColor: isUser ? t.colors.indigo500 : t.colors.bgSurface,
-          borderWidth: isUser ? 0 : 1,
-          borderColor: isUser ? "transparent" : t.colors.borderSubtle,
+          backgroundColor: failed
+            ? t.colors.bgSurface
+            : isUser ? t.colors.indigo500 : t.colors.bgSurface,
+          borderWidth: 1,
+          borderColor: failed
+            ? t.colors.danger
+            : isUser ? "transparent" : t.colors.borderSubtle,
+          opacity: pending ? 0.65 : 1,
         }}
       >
         {!isUser && employeeCfg ? (
@@ -127,6 +146,38 @@ export function MessageBubble({ role, content, employee, pending }: MessageBubbl
             ),
           )
         )}
+      </View>
+
+      {/* Timestamp or status below the bubble */}
+      {failed && onRetry ? (
+        <Pressable onPress={onRetry} hitSlop={6}>
+          <Text
+            variant="caption"
+            style={{
+              color: t.colors.danger,
+              textAlign: isUser ? "right" : "left",
+            }}
+          >
+            Failed to send — tap to retry
+          </Text>
+        </Pressable>
+      ) : pending ? (
+        <Text
+          variant="caption"
+          tone="tertiary"
+          style={{ textAlign: isUser ? "right" : "left" }}
+        >
+          Sending…
+        </Text>
+      ) : timestamp ? (
+        <Text
+          variant="caption"
+          tone="tertiary"
+          style={{ textAlign: isUser ? "right" : "left" }}
+        >
+          {formatMessageTime(timestamp)}
+        </Text>
+      ) : null}
       </View>
     </View>
   );
