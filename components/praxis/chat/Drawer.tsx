@@ -27,6 +27,7 @@ import {
   PushPinSimple,
   CaretRight,
   X,
+  ChatTeardropDots,
 } from "phosphor-react-native";
 import { format, isToday, isYesterday, subDays } from "date-fns";
 import * as Haptics from "expo-haptics";
@@ -486,6 +487,11 @@ export function Drawer({
             }}
           >
             <SectionLabel>WORKSPACE</SectionLabel>
+            <WorkspaceRow
+              icon={<ChatTeardropDots size={16} color={t.colors.inkSecondary} weight="regular" />}
+              label="All conversations"
+              onPress={() => goRoute("/(app)/chat/conversations")}
+            />
             <WorkspaceRow
               icon={<Code size={16} color={t.colors.inkSecondary} weight="regular" />}
               label="Builds"
