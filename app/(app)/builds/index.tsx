@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { View, FlatList, RefreshControl, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { Stack as StackIcon, CheckCircle, XCircle, CircleNotch, Sparkle } from "phosphor-react-native";
+import { Stack as StackIcon, CheckCircle, XCircle, CircleNotch, Sparkle, Plus } from "phosphor-react-native";
 import { formatDistanceToNow } from "date-fns";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, IconBadge } from "../../../components/praxis";
@@ -68,14 +68,38 @@ export default function BuildsIndexScreen() {
           paddingHorizontal: t.layout.screenPaddingX,
           paddingTop: 8,
           paddingBottom: 16,
+          flexDirection: "row",
+          alignItems: "flex-end",
         }}
       >
-        <Text variant="caption" tone="indigo" weight="semibold">
-          BUILDS
-        </Text>
-        <Text variant="displayLg" family="display" weight="semibold">
-          Engineering sessions
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text variant="caption" tone="indigo" weight="semibold">
+            BUILDS
+          </Text>
+          <Text variant="displayLg" family="display" weight="semibold">
+            Engineering sessions
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => router.push("/(app)/builds/new" as never)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: t.radii.md,
+            backgroundColor: pressed ? t.colors.indigoSoft : t.colors.bgSurface,
+            borderWidth: 1,
+            borderColor: t.colors.borderSubtle,
+            marginBottom: 2,
+          })}
+        >
+          <Plus size={14} color={t.colors.indigo500} weight="bold" />
+          <Text variant="bodySm" weight="semibold" style={{ color: t.colors.indigo500 }}>
+            New Build
+          </Text>
+        </Pressable>
       </View>
 
       <FlatList
