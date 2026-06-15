@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { View, ScrollView, Pressable, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowRight, Microphone } from "phosphor-react-native";
+import { ArrowRight, Lock, Microphone } from "phosphor-react-native";
 import * as Haptics from "expo-haptics";
 import { usePraxisTheme } from "../../../contexts/PraxisThemeContext";
 import { Text, EmployeeAvatar } from "../../../components/praxis";
@@ -13,6 +13,8 @@ import {
   formatRelative,
   type EmployeeActivity,
 } from "../../../lib/conduit/teamActivity";
+import { getOrCreateAccount, isEmployeeLocked } from "../../../lib/conduit/account";
+import type { ConduitAccount } from "../../../lib/conduit/types";
 
 // 15 minutes window for the "active" pulse — past this, employees are
 // shown as merely "available". AI workers never sleep, but recency is
@@ -23,12 +25,14 @@ export default function TeamIndexScreen() {
   const t = usePraxisTheme();
   const router = useRouter();
   const [activity, setActivity] = useState<EmployeeActivity[]>([]);
+  const [account, setAccount] = useState<ConduitAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const rows = await getTeamActivity();
+    const [rows, acc] = await Promise.all([getTeamActivity(), getOrCreateAccount()]);
     setActivity(rows);
+    setAccount(acc);
   }, []);
 
   useFocusEffect(
@@ -60,13 +64,9 @@ export default function TeamIndexScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const openChat = (employee: EmployeeId, existingConvoId: string | null) => {
+  const openEmployee = (employee: EmployeeId) => {
     Haptics.selectionAsync().catch(() => {});
-    if (existingConvoId) {
-      router.push(`/(app)/chat/${existingConvoId}` as never);
-    } else {
-      router.push(`/(app)/chat/new?employee=${employee}` as never);
-    }
+    router.push(`/(app)/team/${employee}` as never);
   };
 
   const openVoice = () => {
@@ -151,10 +151,11 @@ export default function TeamIndexScreen() {
             const isActive =
               row.lastAt &&
               now.getTime() - new Date(row.lastAt).getTime() < ACTIVE_WINDOW_MS;
+            const locked = isEmployeeLocked(row.employee, account?.tier_id);
             return (
               <Pressable
                 key={row.employee}
-                onPress={() => openChat(row.employee, row.lastConversationId)}
+                onPress={() => openEmployee(row.employee)}
                 style={({ pressed }) => ({
                   paddingHorizontal: 14,
                   paddingVertical: 12,
@@ -164,6 +165,7 @@ export default function TeamIndexScreen() {
                     : t.colors.bgSurface,
                   borderWidth: 1,
                   borderColor: t.colors.borderSubtle,
+                  opacity: locked ? 0.5 : 1,
                 })}
               >
                 <View
@@ -175,21 +177,41 @@ export default function TeamIndexScreen() {
                 >
                   <View>
                     <EmployeeAvatar employee={row.employee} size="md" />
-                    <View
-                      style={{
-                        position: "absolute",
-                        right: -2,
-                        bottom: -2,
-                        width: 12,
-                        height: 12,
-                        borderRadius: 6,
-                        backgroundColor: isActive
-                          ? "#3DD68C"
-                          : surface.accentColor,
-                        borderWidth: 2,
-                        borderColor: t.colors.bgSurface,
-                      }}
-                    />
+                    {locked ? (
+                      <View
+                        style={{
+                          position: "absolute",
+                          right: -2,
+                          bottom: -2,
+                          width: 16,
+                          height: 16,
+                          borderRadius: 8,
+                          backgroundColor: t.colors.bgSurface,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderWidth: 1,
+                          borderColor: t.colors.borderSubtle,
+                        }}
+                      >
+                        <Lock size={9} color={t.colors.inkTertiary} weight="fill" />
+                      </View>
+                    ) : (
+                      <View
+                        style={{
+                          position: "absolute",
+                          right: -2,
+                          bottom: -2,
+                          width: 12,
+                          height: 12,
+                          borderRadius: 6,
+                          backgroundColor: isActive
+                            ? "#3DD68C"
+                            : surface.accentColor,
+                          borderWidth: 2,
+                          borderColor: t.colors.bgSurface,
+                        }}
+                      />
+                    )}
                   </View>
 
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -209,13 +231,23 @@ export default function TeamIndexScreen() {
                       >
                         {cfg.name}
                       </Text>
-                      <Text
-                        variant="caption"
-                        tone="tertiary"
-                        style={{ letterSpacing: 0 }}
-                      >
-                        {formatRelative(row.lastAt, now)}
-                      </Text>
+                      {locked ? (
+                        <Text
+                          variant="caption"
+                          tone="tertiary"
+                          style={{ letterSpacing: 0 }}
+                        >
+                          Pro+
+                        </Text>
+                      ) : (
+                        <Text
+                          variant="caption"
+                          tone="tertiary"
+                          style={{ letterSpacing: 0 }}
+                        >
+                          {formatRelative(row.lastAt, now)}
+                        </Text>
+                      )}
                     </View>
                     <Text
                       variant="caption"
@@ -231,11 +263,17 @@ export default function TeamIndexScreen() {
                       numberOfLines={2}
                       style={{ marginTop: 6 }}
                     >
-                      {row.lastPreview ?? "Hasn't replied yet — tap to start."}
+                      {locked
+                        ? cfg.blurb
+                        : (row.lastPreview ?? "Hasn't replied yet — tap to start.")}
                     </Text>
                   </View>
 
-                  <ArrowRight size={16} color={t.colors.inkTertiary} />
+                  {locked ? (
+                    <Lock size={14} color={t.colors.inkTertiary} />
+                  ) : (
+                    <ArrowRight size={16} color={t.colors.inkTertiary} />
+                  )}
                 </View>
               </Pressable>
             );

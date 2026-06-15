@@ -57,6 +57,22 @@ export function getCachedAccount(): ConduitAccount | null {
   return cachedAccount;
 }
 
+import type { EmployeeId } from "./employees";
+
+// Employees available on the Free tier. All others require Pro or Enterprise.
+const FREE_TIER_EMPLOYEES: EmployeeId[] = ["atlas"];
+
+/** Returns true when this employee is locked behind a paid tier. */
+export function isEmployeeLocked(
+  employeeId: EmployeeId,
+  tierId: string | null | undefined,
+): boolean {
+  if (!tierId || tierId === "free") {
+    return !FREE_TIER_EMPLOYEES.includes(employeeId);
+  }
+  return false;
+}
+
 export type DeleteAccountResult =
   | { ok: true }
   | { ok: false; protected: true }
