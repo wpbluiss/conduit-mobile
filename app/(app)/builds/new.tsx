@@ -8,7 +8,7 @@ import {
   Browsers,
   Funnel,
   AddressBook,
-  MailOpen,
+  EnvelopeOpen,
   ArrowRight,
 } from "phosphor-react-native";
 import * as Haptics from "expo-haptics";
@@ -52,7 +52,7 @@ const TEMPLATES: Template[] = [
     id: "contact-form",
     name: "Contact Form",
     desc: "Simple contact page with email routing and spam filtering.",
-    Icon: MailOpen,
+    Icon: EnvelopeOpen,
   },
 ];
 
