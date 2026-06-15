@@ -14,6 +14,88 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
+// ── Intent classification ─────────────────────────────────────────────────
+// Mirrors conduit-nextjs lib/ai/intent-classifier.ts (R3 Adaptive routing).
+// Classifies the user's last message into one of five intent buckets used
+// to pick the right model tier via modelForEmployee().
+
+type IntentType = "routing" | "creative" | "reasoning" | "code" | "factual";
+
+// 50-entry LRU cache: key = first 200 chars of message text.
+const _intentCache = new Map<string, IntentType>();
+
+function classifyIntent(text: string): IntentType {
+  const key = text.slice(0, 200);
+  if (_intentCache.has(key)) return _intentCache.get(key)!;
+
+  const t = text.toLowerCase();
+
+  // Heuristic short-circuits (fast path before regex)
+  if (text.length < 20) {
+    const intent = "factual";
+    _lruSet(key, intent);
+    return intent;
+  }
+
+  let intent: IntentType = "factual";
+
+  if (/\b(why|how does|explain|analyze|reason|think through|compare|evaluate|assess|critique|break down|weigh|trade.?off|argue|debate|consider|implications|consequences|should i|which is better|pros and cons)\b/.test(t)) {
+    intent = "reasoning";
+  } else if (/\b(write|draft|create|generate|compose|story|poem|blog|essay|email|copy|content|creative|imagine|design|describe|narrate|rewrite|revise|make me|come up with|brainstorm)\b/.test(t)) {
+    intent = "creative";
+  } else if (/\b(code|function|class|implement|bug|fix|refactor|test|script|algorithm|api|endpoint|sql|query|debug|error|exception|stack.?trace|typescript|python|javascript|react|component|type error)\b/.test(t)) {
+    intent = "code";
+  } else if (/\b(route|assign|delegate|forward|escalate|who should|who handles|which employee|which team|hand off)\b/.test(t)) {
+    intent = "routing";
+  }
+
+  _lruSet(key, intent);
+  return intent;
+}
+
+function _lruSet(key: string, intent: IntentType): void {
+  if (_intentCache.size >= 50) {
+    const firstKey = _intentCache.keys().next().value as string | undefined;
+    if (firstKey !== undefined) _intentCache.delete(firstKey);
+  }
+  _intentCache.set(key, intent);
+}
+
+// ── Model selection ───────────────────────────────────────────────────────
+// modelForEmployee() mirrors conduit-nextjs lib/ai/modelForEmployee.ts.
+// Picks the Anthropic model based on employee, intent, tier, and Creator Mode.
+
+function modelForEmployee(
+  _employee: EmployeeId | "team",
+  intent: IntentType,
+  tier: string | null,
+  creatorMode: boolean,
+): string {
+  // Creator Mode v2 (Luis's account): heavy tasks → Opus 4.7, rest → Sonnet 4.6
+  if (creatorMode) {
+    if (intent === "reasoning" || intent === "code") return "claude-opus-4-7-20250929";
+    return "claude-sonnet-4-6";
+  }
+
+  // Enterprise: Sonnet for all (Opus only with explicit creator flag)
+  if (tier === "enterprise") return "claude-sonnet-4-6";
+
+  // Pro: Sonnet for all
+  if (tier === "pro") return "claude-sonnet-4-6";
+
+  // Free tier: Haiku for cheap factual/routing, Sonnet for complex
+  if (intent === "factual" || intent === "routing") return "claude-haiku-4-5-20251001";
+  return "claude-sonnet-4-6";
+}
+
+// Maximum tokens scales with task complexity to avoid over-spending on
+// simple factual lookups and under-budgeting creative/reasoning tasks.
+function maxTokensForIntent(intent: IntentType): number {
+  if (intent === "code") return 4096;
+  if (intent === "creative" || intent === "reasoning") return 2048;
+  return 1024;
+}
+
 type EmployeeId =
   | "atlas"
   | "engineering"
@@ -229,12 +311,14 @@ Deno.serve(async (req: Request) => {
   }
   const { data: account, error: acctErr } = await admin
     .from("conduit_accounts")
-    .select("id, owner_user_id, name")
+    .select("id, owner_user_id, name, tier_id, creator_mode")
     .eq("id", convo.account_id)
     .maybeSingle();
   if (acctErr || !account || account.owner_user_id !== userId) {
     return json({ ok: false, error: "forbidden" }, 403);
   }
+  const tier: string | null = (account.tier_id as string | null) ?? null;
+  const creatorMode: boolean = (account.creator_mode as boolean | null) === true;
 
   // Fetch the last 20 messages for context
   const { data: history, error: histErr } = await admin
@@ -254,6 +338,9 @@ Deno.serve(async (req: Request) => {
   if (!lastUser) {
     return json({ ok: false, error: "no_user_message" }, 400);
   }
+
+  // Classify intent for model selection (Adaptive routing R3).
+  const intent = classifyIntent(lastUser.content);
 
   // Decide which employee responds.
   const override = normalizeEmployee(body.employee_override);
@@ -295,9 +382,11 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Build the Anthropic call
+  // Build the Anthropic call — model and token budget vary by intent + tier.
   const systemPrompt = employee === "team" ? TEAM_PROMPT : EMPLOYEE_PROMPTS[employee].prompt;
   const anthropicMessages = toAnthropicMessages(messages);
+  const selectedModel = modelForEmployee(employee, intent, tier, creatorMode);
+  const maxTok = maxTokensForIntent(intent);
 
   const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -307,8 +396,8 @@ Deno.serve(async (req: Request) => {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 1024,
+      model: selectedModel,
+      max_tokens: maxTok,
       system: systemPrompt,
       messages: anthropicMessages,
     }),
@@ -343,7 +432,7 @@ Deno.serve(async (req: Request) => {
       role: "assistant",
       employee,
       content: responseText,
-      metadata: { model: "claude-sonnet-4-5" },
+      metadata: { model: selectedModel, intent },
     })
     .select("id")
     .single();
