@@ -17,10 +17,11 @@ import { usePraxisTheme } from "../../contexts/PraxisThemeContext";
 import { Text } from "../../components/praxis";
 import { VoiceOrb, type OrbState } from "../../components/praxis/voice/VoiceOrb";
 import { Captions } from "../../components/praxis/voice/Captions";
-import { getConversation } from "../../lib/conduit/conversations";
+import { getConversation, subscribeToMessages } from "../../lib/conduit/conversations";
 import { synthesizeSpeech } from "../../lib/conduit/voice";
 import { writeBase64AudioToCache } from "../../lib/conduit/audioPlayback";
 import { getEmployee, type EmployeeId } from "../../lib/conduit/employees";
+import { getOrCreateAccount } from "../../lib/conduit/account";
 
 export default function VoiceModalScreen() {
   const t = usePraxisTheme();
@@ -38,11 +39,38 @@ export default function VoiceModalScreen() {
   const [muted, setMuted] = useState(false);
   const [synthesizing, setSynthesizing] = useState(false);
   const synthedRef = useRef<string>("");
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
+  const [autoPlay, setAutoPlay] = useState<boolean>(false);
 
   // Stable player. We swap sources via .replace() instead of letting
   // useAudioPlayer rebuild the player when `audioUri` changes — rebuilding
   // is racy on iOS and was a contributing cause of silent previews in R19.
   const player = useAudioPlayer(null);
+
+  // Load voice preferences (speed, auto_play) from account.
+  useEffect(() => {
+    getOrCreateAccount().then((account) => {
+      if (!account) return;
+      if (account.voice_speed !== null && account.voice_speed !== undefined) {
+        setVoiceSpeed(Math.min(2.0, Math.max(0.5, account.voice_speed)));
+      }
+      if (account.voice_auto_play !== null && account.voice_auto_play !== undefined) {
+        setAutoPlay(!!account.voice_auto_play);
+      }
+    });
+  }, []);
+
+  // Realtime: when auto-play is on and we have a conversationId, subscribe to
+  // incoming assistant messages and trigger TTS automatically.
+  useEffect(() => {
+    if (!conversationId || !autoPlay) return;
+    const unsub = subscribeToMessages(conversationId, (msg) => {
+      if (msg.role !== "assistant") return;
+      if (msg.employee) setEmployee(msg.employee);
+      setAssistantText(msg.content);
+    });
+    return unsub;
+  }, [conversationId, autoPlay]);
 
   // Only auto-load a transcript when an explicit conversationId is passed
   // in. Without one (e.g. entering voice mode from the team grid or any
@@ -84,6 +112,7 @@ export default function VoiceModalScreen() {
       const result = await synthesizeSpeech({
         text: assistantText,
         employee,
+        speed: voiceSpeed,
       });
       if (!result.ok) {
         console.warn("[Voice] tts failed:", result.error);

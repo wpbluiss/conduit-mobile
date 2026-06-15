@@ -17,7 +17,22 @@ import {
 } from "../../../lib/conduit/surfaces";
 import type { EmployeeId } from "../../../lib/conduit/employees";
 
-const SAMPLE_LINE = "Voice mode is live, Luis. Tap any employee to hear them.";
+const SAMPLE_LINE = "Voice mode is live. Tap any employee to hear them.";
+
+const SPEED_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0] as const;
+type SpeedStep = (typeof SPEED_STEPS)[number];
+
+function snapToSpeed(raw: number | null | undefined): SpeedStep {
+  if (!raw) return 1.0;
+  const clamped = Math.min(2.0, Math.max(0.5, raw));
+  let closest: SpeedStep = 1.0;
+  let minDelta = Infinity;
+  for (const s of SPEED_STEPS) {
+    const d = Math.abs(s - clamped);
+    if (d < minDelta) { minDelta = d; closest = s; }
+  }
+  return closest;
+}
 
 export default function VoicePrefsScreen() {
   const t = usePraxisTheme();
@@ -25,6 +40,8 @@ export default function VoicePrefsScreen() {
 
   const [voiceMap, setVoiceMap] = useState<Record<string, string>>({});
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [speed, setSpeed] = useState<SpeedStep>(1.0);
   const [previewing, setPreviewing] = useState<EmployeeId | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   // Stable player. We pass an empty source on first mount and use .replace()
@@ -47,8 +64,10 @@ export default function VoicePrefsScreen() {
         }
         setVoiceMap(map);
       }
-      if (account && account.voice_enabled !== null) {
-        setVoiceEnabled(!!account.voice_enabled);
+      if (account) {
+        if (account.voice_enabled !== null) setVoiceEnabled(!!account.voice_enabled);
+        if (account.voice_auto_play !== null) setAutoPlay(!!account.voice_auto_play);
+        setSpeed(snapToSpeed(account.voice_speed));
       }
     })();
     return () => {
@@ -68,7 +87,7 @@ export default function VoicePrefsScreen() {
     setPreviewError(null);
     setPreviewing(emp);
     const sample = `${EMPLOYEE_SURFACES[emp].name} here. ${SAMPLE_LINE}`;
-    const result = await synthesizeSpeech({ text: sample, employee: emp });
+    const result = await synthesizeSpeech({ text: sample, employee: emp, speed });
     if (!result.ok) {
       const msg = `TTS failed: ${result.error ?? "unknown"}`;
       console.warn("[VoicePrefs]", msg);
@@ -109,6 +128,28 @@ export default function VoicePrefsScreen() {
       .eq("id", account.id);
   };
 
+  const toggleAutoPlay = async (next: boolean) => {
+    setAutoPlay(next);
+    Haptics.selectionAsync().catch(() => {});
+    const account = await getOrCreateAccount();
+    if (!account) return;
+    await supabase
+      .from("conduit_accounts")
+      .update({ voice_auto_play: next })
+      .eq("id", account.id);
+  };
+
+  const changeSpeed = async (next: SpeedStep) => {
+    setSpeed(next);
+    Haptics.selectionAsync().catch(() => {});
+    const account = await getOrCreateAccount();
+    if (!account) return;
+    await supabase
+      .from("conduit_accounts")
+      .update({ voice_speed: next })
+      .eq("id", account.id);
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.colors.bgCanvas }} edges={["top"]}>
       <View style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
@@ -141,48 +182,129 @@ export default function VoicePrefsScreen() {
           </Text>
         </View>
 
+        {/* Settings card: voice toggle + auto-play + speed */}
         <View
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 14,
-            paddingVertical: 12,
             backgroundColor: t.colors.bgSurface,
             borderWidth: 1,
             borderColor: t.colors.borderSubtle,
             borderRadius: t.radii.lg,
             marginBottom: 20,
+            overflow: "hidden",
           }}
         >
+          {/* Voice enabled */}
           <View
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: t.colors.indigoSoft,
+              flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
-              marginRight: 10,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
             }}
           >
-            <Microphone size={18} color={t.colors.indigo500} weight="bold" />
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: t.colors.indigoSoft,
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 10,
+              }}
+            >
+              <Microphone size={18} color={t.colors.indigo500} weight="bold" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="body" weight="semibold">
+                Voice mode
+              </Text>
+              <Text variant="caption" tone="tertiary" style={{ letterSpacing: 0 }}>
+                {voiceEnabled ? "Assistant replies play aloud." : "Voice playback is off."}
+              </Text>
+            </View>
+            <Switch
+              value={voiceEnabled}
+              onValueChange={toggleVoice}
+              trackColor={{ false: t.colors.borderDefault, true: t.colors.indigo500 }}
+              ios_backgroundColor={t.colors.borderDefault}
+            />
           </View>
-          <View style={{ flex: 1 }}>
+
+          {/* Auto-play */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderTopWidth: 0.5,
+              borderTopColor: t.colors.borderSubtle,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text variant="body" weight="semibold">
+                Auto-play
+              </Text>
+              <Text variant="caption" tone="tertiary" style={{ letterSpacing: 0 }}>
+                Play TTS automatically when a new message arrives.
+              </Text>
+            </View>
+            <Switch
+              value={autoPlay}
+              onValueChange={toggleAutoPlay}
+              trackColor={{ false: t.colors.borderDefault, true: t.colors.indigo500 }}
+              ios_backgroundColor={t.colors.borderDefault}
+            />
+          </View>
+
+          {/* Speed control */}
+          <View
+            style={{
+              paddingHorizontal: 14,
+              paddingTop: 12,
+              paddingBottom: 14,
+              borderTopWidth: 0.5,
+              borderTopColor: t.colors.borderSubtle,
+              gap: 8,
+            }}
+          >
             <Text variant="body" weight="semibold">
-              Voice mode
+              Playback speed
             </Text>
-            <Text variant="caption" tone="tertiary" style={{ letterSpacing: 0 }}>
-              {voiceEnabled
-                ? "Assistant replies play aloud in voice mode."
-                : "Voice playback is off."}
-            </Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {SPEED_STEPS.map((s) => {
+                const active = speed === s;
+                return (
+                  <Pressable
+                    key={s}
+                    onPress={() => changeSpeed(s)}
+                    style={({ pressed }) => ({
+                      flex: 1,
+                      paddingVertical: 7,
+                      borderRadius: t.radii.sm,
+                      alignItems: "center",
+                      backgroundColor: active
+                        ? t.colors.indigo500
+                        : pressed
+                          ? t.colors.bgElevated
+                          : t.colors.bgCanvas,
+                      borderWidth: 1,
+                      borderColor: active ? t.colors.indigo500 : t.colors.borderDefault,
+                    })}
+                  >
+                    <Text
+                      variant="caption"
+                      weight="semibold"
+                      style={{ color: active ? "#FFFFFF" : t.colors.inkSecondary, letterSpacing: 0 }}
+                    >
+                      {s === 1.0 ? "1×" : `${s}×`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-          <Switch
-            value={voiceEnabled}
-            onValueChange={toggleVoice}
-            trackColor={{ false: t.colors.borderDefault, true: t.colors.indigo500 }}
-            ios_backgroundColor={t.colors.borderDefault}
-          />
         </View>
 
         <Text

@@ -11,6 +11,8 @@ import type { EmployeeId } from "./employees";
 export interface SynthRequest {
   text: string;
   employee?: EmployeeId | "team" | null;
+  /** Playback speed passed to ElevenLabs (0.5–2.0). Defaults to 1.0. */
+  speed?: number;
 }
 
 export interface SynthResult {
@@ -35,6 +37,7 @@ export interface SynthResult {
  */
 export async function synthesizeSpeech(req: SynthRequest): Promise<SynthResult> {
   try {
+    const speed = req.speed !== undefined ? Math.min(2.0, Math.max(0.5, req.speed)) : undefined;
     const { data, error } = await supabase.functions.invoke<
       | { ok: true; audio_base64: string; voice_id?: string }
       | { ok: false; error: string }
@@ -42,6 +45,7 @@ export async function synthesizeSpeech(req: SynthRequest): Promise<SynthResult> 
       body: {
         text: req.text,
         employee: req.employee ?? null,
+        ...(speed !== undefined ? { speed } : {}),
       },
     });
     if (error || !data || !("ok" in data)) {
