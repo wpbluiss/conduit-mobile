@@ -327,8 +327,7 @@ export function ChatShell({
     router.push("/(app)/chat/new" as never);
   };
 
-  const onSelectEmployeeFromDrawer = (id: EmployeeId) => {
-    // From drawer: route to a fresh thread with the employee pre-mentioned.
+  const onSelectEmployeeFromDrawer = (id: EmployeeId | "team") => {
     router.push(`/(app)/chat/new?employee=${id}` as never);
   };
 
