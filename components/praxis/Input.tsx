@@ -10,19 +10,22 @@ export interface InputProps extends Omit<TextInputProps, "style"> {
   leftAdornment?: React.ReactNode;
   rightAdornment?: React.ReactNode;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Override the focus-ring color; defaults to indigo500 */
+  focusColor?: string;
 }
 
 export const Input = forwardRef<TextInput, InputProps>(function Input(
-  { label, hint, error, leftAdornment, rightAdornment, containerStyle, onFocus, onBlur, ...rest },
+  { label, hint, error, leftAdornment, rightAdornment, containerStyle, focusColor, onFocus, onBlur, ...rest },
   ref,
 ) {
   const t = usePraxisTheme();
   const [focused, setFocused] = useState(false);
 
+  const activeFocusColor = focusColor ?? t.colors.indigo500;
   const borderColor = error
     ? t.colors.danger
     : focused
-      ? t.colors.indigo500
+      ? activeFocusColor
       : t.colors.borderDefault;
 
   return (
