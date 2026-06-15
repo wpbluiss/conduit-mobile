@@ -14,6 +14,8 @@ export interface MessageListProps {
   isWaiting?: boolean;
   /** Current typing-stage broadcast from chat-respond, if any. */
   stage?: { label: string; employee?: string | null } | null;
+  /** Optional component rendered above the message list (e.g. MemoryCard). */
+  headerComponent?: React.ReactNode;
 }
 
 function MessageRowFallback() {
@@ -34,7 +36,7 @@ function MessageRowFallback() {
   );
 }
 
-export function MessageList({ messages, streaming, isWaiting, stage }: MessageListProps) {
+export function MessageList({ messages, streaming, isWaiting, stage, headerComponent }: MessageListProps) {
   const listRef = useRef<FlatList<Message>>(null);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export function MessageList({ messages, streaming, isWaiting, stage }: MessageLi
           />
         </ErrorBoundary>
       )}
+      ListHeaderComponent={headerComponent ? <>{headerComponent}</> : null}
       contentContainerStyle={{ paddingVertical: 8 }}
       onContentSizeChange={() => {
         if (messages.length > 0) {
