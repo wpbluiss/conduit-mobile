@@ -3,8 +3,10 @@ import {
   Pressable,
   ActivityIndicator,
   View,
+  type NativeSyntheticEvent,
   type PressableProps,
   type StyleProp,
+  type TargetedEvent,
   type ViewStyle,
 } from "react-native";
 import * as Haptics from "expo-haptics";
@@ -44,11 +46,14 @@ export function Button({
   disabled,
   style,
   onPress,
+  onFocus,
+  onBlur,
   ...rest
 }: ButtonProps) {
   const t = usePraxisTheme();
   const dims = SIZE_MAP[size];
   const isDisabled = disabled || loading;
+  const [focused, setFocused] = React.useState(false);
 
   const palette = ((): { bg: string; bgPressed: string; ink: string; border: string } => {
     switch (variant) {
@@ -97,18 +102,31 @@ export function Button({
     onPress?.(e);
   };
 
+  const handleFocus = (e: NativeSyntheticEvent<TargetedEvent>) => {
+    setFocused(true);
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e: NativeSyntheticEvent<TargetedEvent>) => {
+    setFocused(false);
+    onBlur?.(e);
+  };
+
   return (
     <Pressable
       {...rest}
       accessible
       accessibilityRole="button"
+      accessibilityState={{ disabled: !!isDisabled }}
       disabled={isDisabled}
       onPress={handlePress}
-      style={({ pressed, focused }) => {
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      style={({ pressed }) => {
         // Keyboard / accessibility focus ring — ember brand color, 2px weight.
-        // `focused` is true only for hardware keyboard and VoiceOver/TalkBack
-        // navigation; it is NOT set during touch interaction, matching the web's
-        // :focus-visible behaviour.
+        // `focused` is tracked via Pressable's onFocus/onBlur events, which fire
+        // for hardware keyboard and VoiceOver/TalkBack navigation but NOT during
+        // touch interaction, matching the web's :focus-visible behaviour.
         const showFocusRing = focused && variant !== "link";
         const borderWidth = showFocusRing
           ? 2
